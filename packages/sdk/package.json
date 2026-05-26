@@ -19,7 +19,9 @@
   "dependencies": {
     "@proteus/core": "workspace:*"
   },
+  "engines": { "node": ">=20" },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^3.1.0"
   }
 }

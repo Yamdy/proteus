@@ -42,17 +42,29 @@ The agent's ability to modify itself at runtime. Dual-channel:
 - **Cognitive channel**: dynamic prompt fragment loading at Context Assembly stage (modifies "what the agent thinks")
 - **Behavioral channel**: `self_modify` tool at Tool Execution stage (modifies "what the agent can do")
 
-### Hook
-An anchor point in the Turn lifecycle where Plugins can be registered. Each of the five Turn stages exposes hooks. A hook supports two plugin natures:
-- **Observer hook**: broadcast-style, plugins are read-only and do not alter execution flow. Used for observability (logs, traces, metrics).
-- **Interceptor hook**: middleware-style, plugins can read, modify, or abort execution flow. Used for functional extension and behavior modification.
+### Stage Execution Model
+Each Turn stage executes with three mechanisms:
 
-The same hook point can host both Observer and Interceptor plugins; Observers execute first, then Interceptors.
+1. **Gate** — onion-model middleware layer. Receives Readonly context + `next_handler`. Can short-circuit by not calling `next_handler`. Used for cross-cutting interception (rate limiting, permission, quota, cost gating). Multiple Gates per stage, wrapping the Processor.
+2. **Processor** — the stage's core business logic. Receives Writable context, no `next_handler`. Cannot short-circuit. Exactly one Processor per stage. This is what the stage "does."
+3. **Transformer** — sequential pipeline for pure data transformation (no before/after semantics). Used for system prompt assembly. Each Transformer receives the previous one's output.
 
-### Plugin
-A unit of extension registered at a Hook. Two natures:
-- **Observer Plugin**: read-only side-effect on the Turn (e.g., emit OTel span, log event, record metric). Cannot alter execution flow.
-- **Interceptor Plugin**: can read context, modify context, short-circuit execution, or inject new behavior. Executed in priority order as a middleware chain.
+Boundary rules (enforced by TypeScript types):
+- Need to modify context → Processor
+- Need to intercept/deny → Gate
+- Need to transform data → Transformer
+- Only need to observe → EventStore
+
+### EventStore
+Immutable fact broadcast and persistence. Push-mode: events are emitted after each Gate/Processor execution, subscribers receive them asynchronously. Used for observability (OTel bridge), audit logging, and UI streaming. Events are NOT used for interception or flow control — that is Gate's responsibility.
+
+### Schema System (Zod)
+Zod is the single source of truth for all runtime schemas. Zod schemas derive:
+- **JSON Schema** — for LLM tool definitions (via `zod-to-json-schema`)
+- **TypeScript types** — via `z.infer<typeof Schema>`
+- **Runtime validation** — at trust boundaries (Gate I/O, Processor results, Config, SDK API inputs, self_modify generated code)
+
+Tool parameter definitions use Zod schemas. Vercel AI SDK integration is zero-friction (it natively accepts Zod schemas).
 
 ### Three-Layer Architecture
 
@@ -60,12 +72,14 @@ Proteus ships as three layers:
 
 1. **Core** — the shared runtime: Agent Loop, Hook/Plugin engine, observability pipeline, self-boostrap mechanism. A standalone library with no IO or transport concerns.
 2. **SDK** — embeds Core and exposes it as a programming language API. For embedding Proteus inside another application (e.g., another AI agent). Runs a single Agent Loop instance in-process.
-3. **Server** — embeds Core and wraps it with a service shell: HTTP/gRPC API, WebSocket streaming, session management, multi-tenant isolation, persistence, and Studio API. Serves multiple concurrent clients.
+3. **Server** — embeds Core and wraps it with a service shell: HTTP/WebSocket API, session management, multi-tenant isolation, persistence, and Studio API. Serves multiple concurrent clients. V1: HTTP + WebSocket only; gRPC deferred to a future version.
 
 SDK and Server share the same Core; they differ only in how they expose it (language API vs. network API) and what operational concerns they add.
 
+**Persistence:** Core defines a persistence interface; Server provides the default implementation using SQLite (`better-sqlite3`). Persisted data: Session configs (Level 0-2), Working Memory (conversation history). `self_modify` artifacts persist via git repo (separate mechanism). SDK mode: persistence is optional and user-configurable (in-memory by default). V2 may introduce Postgres as an alternative implementation.
+
 ### Tech Stack
-Language: TypeScript / Node.js. Rationale: shared language for Core + SDK + Server + Studio frontend; AI-generated TS code is reliable; npm plugin ecosystem; IO-bound Agent Loop suits Node's event loop.
+Language: TypeScript / Node.js. Rationale: shared language for Core + SDK + Server + Studio frontend; AI-generated TS code is reliable; npm plugin ecosystem; IO-bound Agent Loop suits Node's event loop. Minimum Node.js version: 20 (Active LTS). TypeScript target: ES2023, module: NodeNext. Testing: Vitest (unit + integration, all packages).
 
 ### Configuration Levels
 
@@ -78,20 +92,24 @@ Proteus configuration spans three levels; Level 3 is an invariant:
 
 ### Plugin Isolation Tiers
 
-Plugins run at one of four isolation levels, determined by trust:
+Gate and Processor extensions run at one of four isolation levels, determined by trust:
 
 | Tier | Name | Runtime | Node.js API | Use Case |
 |------|------|---------|-------------|----------|
 | 0 | Observer | Same process, read-only | Full, but read-only context | OTel collectors, loggers |
 | 1 | Trusted | Same process | Full | User-authored / built-in |
-| 2 | Isolated | Worker Thread | Full, crash-isolated | Community npm plugins |
-| 3 | Sandboxed | VM (isolated-vm) | Restricted (injected API only) | self_modify generated |
+| 2 | Isolated | Worker Thread | Full, crash-isolated | Community npm plugins, self_modify (V1) |
+| 3 | Sandboxed | VM (isolated-vm) | Restricted (injected API only) | self_modify (V2, deferred) |
 
-Plugin declares its trust level via manifest; user can override at registration time (upgrade or downgrade), except `self_modify` plugins are always Tier 3 (non-overridable).
+Plugin declares its trust level via manifest; user can override at registration time (upgrade or downgrade). In V1, `self_modify` plugins run at Tier 2 (Worker Thread); the non-overridable Tier 3 constraint applies from V2 onward when isolated-vm is introduced. V1 does not depend on `isolated-vm`.
+
+**Worker Thread Communication (Tier 2):** The main thread owns all mutable state. Workers never receive the full context — they receive only the minimal parameters needed for the current Gate/Processor invocation. Workers return structured deltas/patches, not mutated context objects. Gate `next_handler` chains execute on the main thread; the Worker is a middleware node that receives → transforms → returns.
 
 ### Observability Model (OTel)
 
 Trace = Chain, Span = Turn, Child Span = Stage. Granularity stops at Stage level; finer spans are opt-in via `tracer.startSpan()` in custom plugins. The sole exception: `self_modify` tool is auto-expanded internally (generate → validate → register → hot-load) because self-boostrap must be fully transparent.
+
+**OTel SDK isolation:** `@opentelemetry/*` packages are internal implementation details of Core. Core defines its own observability interfaces (`ProteusTracer`, `ProteusSpan`, `ProteusMetric`); the OTel JS SDK provides the default implementation. Core's public exports never reference OTel types (`Span`, `Context`, `Tracer`, etc.). This mirrors the `LLMProvider` pattern — same principle, same benefit: pre-1.0 OTel SDK upgrades only affect the internal adapter layer.
 
 | OTel Signal | Proteus Mapping | Examples |
 |---|---|---|
@@ -109,7 +127,7 @@ Git-based snapshots + Watchdog process. No approval flow, no policy engine, no s
 
 **Git Snapshots**: all self_modify artifacts (Level 1 config + Level 2 code) live in a git repo. Before hot-load, Proteus auto-commits with trace_id in the message. Rollback = `git revert`. Studio shows self-boostrap history as git log + diff.
 
-**Watchdog**: a separate process, decoupled from Agent Loop. Subscribes to OTel metrics stream. Detects anomalies (thresholds are Level 0 config) → signals Agent process to `git revert`. Does one thing only: health check → revert.
+**Watchdog**: a separate process, fully decoupled from Agent Loop. Communicates via HTTP heartbeat — periodically calls Agent's health endpoint. If Agent is unresponsive or metrics exceed thresholds (Level 0 config), Watchdog independently executes `git revert` on the session's git repo. Watchdog only needs: git repo path + anomaly thresholds. Does not depend on Agent being alive.
 
 **Not built yet** (future plugin extensions): approval policies, shadow Turns, automated strategy engines.
 
@@ -119,6 +137,8 @@ Independent SPA consuming Server API + OTel ecosystem. Two data sources:
 - **Server API** (HTTP/WebSocket): configuration, self-boostrap history, Agent interaction, session management
 - **OTel backends** (Jaeger/Prometheus/Grafana): observability visualization, embedded as iframe or linked views. No need to rebuild what OTel already provides.
 - Fallback: Server ships an in-memory lightweight OTel collector for users without external backends.
+
+Studio frontend stack: Vue 3 + Vite + Tailwind + Pinia + Vue Router. REST via `fetch` with composable wrappers; WebSocket via composable managing connection lifecycle (connect/reconnect/heartbeat). No TanStack Query (Vue ecosystem maturity insufficient) — simple fetch + Pinia store caching instead. Code editor: CodeMirror 6 (modular, lightweight, TS highlighting + basic completion + diff view for Level 2 editing and self_modify artifacts).
 
 ### Memory Model (Layered)
 
@@ -131,6 +151,8 @@ Three layers, V1 implements two:
 ### LLM Provider
 
 Core defines a `LLMProvider` interface (Level 3 invariant). Vercel AI SDK provides the default implementation covering mainstream providers (OpenAI, Anthropic, Groq, Ollama, etc.). Users can swap implementations via `sdk.registerProvider()`. LLM provider registration is itself a plugin extension point.
+
+Vercel AI SDK is an internal implementation detail of core's default `LLMProvider`. Its types (`LanguageModel`, `ToolCallPart`, etc.) must never appear in core's public exports. `ai` is a runtime dependency of core, but consumers of `@proteus/core` only see the `LLMProvider` interface contract — never the AI SDK surface.
 
 ### Tool
 
