@@ -1,0 +1,32 @@
+{
+  "name": "@proteus/core",
+  "version": "0.0.1",
+  "description": "Proteus Agent Loop, Hook/Plugin engine, OTel pipeline, Tool/LLM interfaces",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.57.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.54.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.57.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.57.0",
+    "ai": "^4.1.0",
+    "isolated-vm": "^5.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

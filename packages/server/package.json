@@ -1,0 +1,29 @@
+{
+  "name": "@proteus/server",
+  "version": "0.0.1",
+  "description": "Proteus Server — HTTP/WS service with session management and Studio API",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@proteus/core": "workspace:*",
+    "fastify": "^5.2.0",
+    "@fastify/websocket": "^11.0.0",
+    "@fastify/cors": "^10.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
