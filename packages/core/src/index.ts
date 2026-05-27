@@ -8,21 +8,23 @@ export type { HandlerResult, HandlerFn } from "./event-bus.js";
 export { HandlerRegistry } from "./handler-registry.js";
 export type { HandlerSnapshot, RegistrySnapshot } from "./handler-registry.js";
 
+// --- Three-Region Context ---
+export {
+  AgentContext,
+  SessionContext,
+  TurnContext,
+  HandlerContext,
+  FrozenContext,
+  CostTracker,
+  WorkingMemory,
+} from "./context.js";
+export type { HandlerRegistryLike } from "./context.js";
+
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
 export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
 
-// --- Turn & Chain ---
-
-export interface TurnContext {
-  sessionId: string;
-  turnId: string;
-  chainId: string;
-  get(key: string): unknown;
-  set(key: string, value: unknown): void;
-  getToolResults(): ToolResult[];
-  getPromptFragments(): PromptFragment[];
-}
+// --- PromptFragment ---
 
 export interface PromptFragment {
   role: "system" | "user" | "assistant" | "tool";
@@ -122,11 +124,4 @@ export interface SessionConfig {
   };
   tools: Record<string, boolean>; // tool name → enabled
   logLevel: "debug" | "info" | "warn" | "error";
-}
-
-export interface WorkingMemory {
-  push(entry: LLMMessage): void;
-  getMessages(): LLMMessage[];
-  truncate(maxTokens: number): void;
-  clear(): void;
 }
