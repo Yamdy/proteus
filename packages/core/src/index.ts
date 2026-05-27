@@ -4,6 +4,10 @@
 export { EventBus } from "./event-bus.js";
 export type { HandlerResult, HandlerFn } from "./event-bus.js";
 
+// --- Handler Registry ---
+export { HandlerRegistry } from "./handler-registry.js";
+export type { HandlerSnapshot, RegistrySnapshot } from "./handler-registry.js";
+
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
 export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
@@ -103,6 +107,7 @@ export interface HandlerDefinition {
   events?: string[];
   priority?: number;
   trust: 0 | 1 | 2 | 3;
+  builtin?: boolean;
   handle: (ctx: unknown) => Promise<import("./event-bus.js").HandlerResult>;
 }
 
