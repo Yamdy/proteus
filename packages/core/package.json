@@ -12,8 +12,9 @@
     }
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "tsc && cp src/dev-server-ui.html dist/",
+    "dev": "tsx src/dev-server-entry.ts",
+    "dev:watch": "tsc --watch",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "tsx": "^4.22.0",
     "typescript": "^5.7.3",
     "vitest": "^3.1.0"
   }

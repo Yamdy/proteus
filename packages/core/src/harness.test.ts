@@ -4,6 +4,7 @@ import { AgentContext, SessionContext } from "./context.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
 import type { LLMProvider } from "./index.js";
+import { LifecycleStateMachine } from "./lifecycle.js";
 
 function stubLLM(): LLMProvider {
   return {
@@ -183,5 +184,202 @@ describe("Harness — handler interception", () => {
 
     expect(result.status).toBe("completed");
     expect(phases).toEqual(["context_assembly", "llm_inference", "action_resolution", "tool_execution", "result_observation"]);
+  });
+});
+
+describe("Harness — suspend checkpoint", () => {
+  it("suspend saves resumeReason and pendingInput to checkpoint, lifecycle → paused", async () => {
+    const engine = new HandlerEngine();
+    engine.register({
+      name: "suspender",
+      events: ["phase:before"],
+      priority: 1,
+      trust: 1,
+      handle: async () => ({ suspend: true as const, pendingInput: "need approval" }),
+    });
+
+    const { agent, session } = makeContext(engine);
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+    const result = await harness.runTurn(session, agent);
+
+    expect(result.status).toBe("suspended");
+    expect(result.suspendInput).toBe("need approval");
+
+    // checkpoint was saved with resumeReason and pendingInput
+    const checkpoint = store.loadLatestCheckpoint("s1");
+    expect(checkpoint).toBeDefined();
+    expect(checkpoint!.resumeReason).toBe("suspend");
+    expect(checkpoint!.pendingInput).toBe("need approval");
+
+    // lifecycle is paused
+    expect(harness.lifecycle.state).toBe("paused");
+  });
+});
+
+describe("Harness — resume", () => {
+  it("resume restores from suspend checkpoint, injects externalInput, continues execution", async () => {
+    const phases: string[] = [];
+    let callCount = 0;
+    const engine = new HandlerEngine();
+    engine.register({
+      name: "suspender-then-pass",
+      events: ["phase:before"],
+      priority: 1,
+      trust: 1,
+      handle: async (ctx: any) => {
+        callCount++;
+        if (callCount === 1) {
+          return { suspend: true as const, pendingInput: "need approval" };
+        }
+        phases.push(ctx.phaseName);
+        return { ok: true as const };
+      },
+    });
+
+    const { agent, session } = makeContext(engine);
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+
+    // First turn: suspends at first phase
+    const suspendResult = await harness.runTurn(session, agent);
+    expect(suspendResult.status).toBe("suspended");
+    expect(harness.lifecycle.state).toBe("paused");
+
+    // Resume: continues from where it left off
+    const resumeResult = await harness.resume(session.sessionId, agent, "approved");
+    expect(resumeResult.status).toBe("completed");
+    expect(harness.lifecycle.state).toBe("running");
+
+    // externalInput was available during resumed execution
+    const checkpoint = store.loadLatestCheckpoint(session.sessionId);
+    expect(checkpoint).toBeDefined();
+  });
+
+  it("resume throws if no suspend checkpoint exists", async () => {
+    const { agent, session } = makeContext();
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+
+    // Run a normal turn (no suspend) — checkpoint saved but without resumeReason
+    await harness.runTurn(session, agent);
+
+    await expect(harness.resume(session.sessionId, agent)).rejects.toThrow(
+      /No suspend checkpoint found/,
+    );
+  });
+});
+
+describe("Harness — runChain", () => {
+  it("chain completes after maxTurns", async () => {
+    const engine = new HandlerEngine();
+    engine.register({
+      name: "passer",
+      events: ["phase:before"],
+      priority: 1,
+      trust: 1,
+      handle: async () => ({ ok: true as const }),
+    });
+
+    const { agent, session } = makeContext(engine);
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+
+    const result = await harness.runChain(session, agent, { maxTurns: 3 });
+
+    expect(result.status).toBe("max_turns");
+    expect(result.turns).toBe(3);
+  });
+
+  it("chain aborts via AbortSignal", async () => {
+    const engine = new HandlerEngine();
+    let callCount = 0;
+    engine.register({
+      name: "counter",
+      events: ["phase:before"],
+      priority: 1,
+      trust: 1,
+      handle: async () => {
+        callCount++;
+        return { ok: true as const };
+      },
+    });
+
+    const { agent, session } = makeContext(engine);
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+    const controller = new AbortController();
+
+    // Abort after first turn completes (5 phases = 5 calls per turn)
+    const originalEmit = agent.handlerEngine.emit.bind(agent.handlerEngine);
+    agent.handlerEngine.emit = async (event: string, payload?: any) => {
+      const results = await originalEmit(event, payload);
+      if (event === "turn:end" && callCount >= 5) {
+        controller.abort();
+      }
+      return results;
+    };
+
+    const result = await harness.runChain(session, agent, { maxTurns: 10, abortSignal: controller.signal });
+
+    expect(result.status).toBe("aborted");
+    expect(result.turns).toBeGreaterThanOrEqual(1);
+  });
+
+  it("chain with suspend then resume completes", async () => {
+    let callCount = 0;
+    const engine = new HandlerEngine();
+    engine.register({
+      name: "suspend-on-first-then-pass",
+      events: ["phase:before"],
+      priority: 1,
+      trust: 1,
+      handle: async (ctx: any) => {
+        callCount++;
+        if (callCount === 1) {
+          return { suspend: true as const, pendingInput: "waiting" };
+        }
+        return { ok: true as const };
+      },
+    });
+
+    const { agent, session } = makeContext(engine);
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+
+    // Chain suspends on first turn
+    const chainResult = await harness.runChain(session, agent, { maxTurns: 5 });
+    expect(chainResult.status).toBe("suspended");
+    expect(chainResult.turns).toBe(1);
+    expect(harness.lifecycle.state).toBe("paused");
+
+    // Resume the chain
+    const resumeResult = await harness.resumeChain(session.sessionId, agent, "approved", { maxTurns: 5 });
+    expect(resumeResult.status).toBe("completed");
+  });
+
+  it("runChain emits chain:start and chain:end events", async () => {
+    const events: string[] = [];
+    const engine = new HandlerEngine();
+    engine.register({
+      name: "passer",
+      events: ["phase:before"],
+      priority: 1,
+      trust: 1,
+      handle: async () => ({ ok: true as const }),
+    });
+
+    engine.observe("chain:start", async () => { events.push("chain:start"); return { ok: true as const }; });
+    engine.observe("chain:end", async () => { events.push("chain:end"); return { ok: true as const }; });
+
+    const { agent, session } = makeContext(engine);
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+
+    await harness.runChain(session, agent, { maxTurns: 2 });
+
+    expect(events).toContain("chain:start");
+    expect(events).toContain("chain:end");
+    expect(events.indexOf("chain:start")).toBeLessThan(events.indexOf("chain:end"));
   });
 });

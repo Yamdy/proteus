@@ -100,6 +100,7 @@ export class TurnContext {
   readonly messages: LLMMessage[] = [];
   readonly toolResults: ToolResult[] = [];
   readonly promptFragments: PromptFragment[] = [];
+  externalInput?: unknown;
 
   constructor(params: {
     turnId: string;
@@ -166,6 +167,8 @@ export class FrozenContext {
   readonly toolResults: readonly ToolResult[];
   readonly promptFragments: readonly PromptFragment[];
   readonly costTotals: { promptTokens: number; completionTokens: number };
+  readonly resumeReason?: "suspend";
+  readonly pendingInput?: unknown;
 
   private constructor(params: {
     timestamp: number;
@@ -176,6 +179,8 @@ export class FrozenContext {
     toolResults: ToolResult[];
     promptFragments: PromptFragment[];
     costTotals: { promptTokens: number; completionTokens: number };
+    resumeReason?: "suspend";
+    pendingInput?: unknown;
   }) {
     this.timestamp = params.timestamp;
     this.checksum = params.checksum;
@@ -185,6 +190,8 @@ export class FrozenContext {
     this.toolResults = Object.freeze(params.toolResults);
     this.promptFragments = Object.freeze(params.promptFragments);
     this.costTotals = Object.freeze(params.costTotals);
+    this.resumeReason = params.resumeReason;
+    this.pendingInput = params.pendingInput;
   }
 
   static from(ctx: HandlerContext, timestamp?: number): FrozenContext {
@@ -200,5 +207,21 @@ export class FrozenContext {
     const payload = JSON.stringify(data);
     const checksum = simpleHash(payload);
     return new FrozenContext({ timestamp: ts, checksum, ...data });
+  }
+
+  static forSuspend(ctx: HandlerContext, pendingInput?: unknown, timestamp?: number): FrozenContext {
+    const base = FrozenContext.from(ctx, timestamp);
+    return new FrozenContext({
+      timestamp: base.timestamp,
+      checksum: base.checksum,
+      sessionId: base.sessionId,
+      turnId: base.turnId,
+      messages: [...base.messages],
+      toolResults: [...base.toolResults],
+      promptFragments: [...base.promptFragments],
+      costTotals: { ...base.costTotals },
+      resumeReason: "suspend",
+      pendingInput,
+    });
   }
 }

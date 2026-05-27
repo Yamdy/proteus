@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proteus — Harness Visualizer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e1e4e8; padding: 24px; }
+  h1 { font-size: 20px; margin-bottom: 20px; color: #c9d1d9; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .card h2 { font-size: 14px; color: #8b949e; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Lifecycle Badge */
+  #lifecycle-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+  .badge-pending { background: #30363d; color: #8b949e; }
+  .badge-running { background: #0d4429; color: #3fb950; }
+  .badge-paused { background: #3d2e00; color: #d29922; }
+  .badge-completed { background: #0d4429; color: #3fb950; }
+  .badge-errored { background: #3d0d0d; color: #f85149; }
+  .badge-cancelled { background: #30363d; color: #8b949e; }
+
+  /* Phase Progress */
+  .phases { display: flex; gap: 4px; margin-bottom: 8px; }
+  .phase-step { flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 4px; background: #21262d; color: #8b949e; transition: all 0.2s; }
+  .phase-step.active { background: #1f6feb; color: #fff; font-weight: 600; }
+  .phase-step.done { background: #238636; color: #fff; }
+
+  /* Event Stream */
+  #event-stream { max-height: 400px; overflow-y: auto; font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 12px; }
+  .event-entry { padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  .event-entry:hover { background: #1c2128; }
+  .event-type { color: #58a6ff; font-weight: 600; }
+  .event-ts { color: #6e7681; margin-right: 8px; }
+  .event-payload { color: #8b949e; margin-top: 2px; word-break: break-all; }
+
+  /* Handler Chain */
+  #handler-chain { max-height: 400px; overflow-y: auto; }
+  .handler-entry { padding: 6px 8px; border-bottom: 1px solid #21262d; font-size: 12px; display: flex; gap: 8px; align-items: center; }
+  .handler-name { color: #d2a8ff; font-weight: 600; min-width: 120px; }
+  .handler-priority { color: #6e7681; font-size: 11px; min-width: 40px; }
+  .handler-result { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 11px; }
+  .result-ok { color: #3fb950; }
+  .result-block { color: #f85149; }
+  .result-suspend { color: #d29922; }
+  .result-abort { color: #f85149; }
+  .result-error { color: #f85149; }
+  .phase-label { color: #8b949e; font-size: 11px; margin-top: 8px; margin-bottom: 4px; padding: 4px 8px; background: #21262d; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Proteus Harness Visualizer</h1>
+
+<div id="lifecycle-badge" class="badge-pending">pending</div>
+
+<div class="grid">
+  <div class="card" style="grid-column: 1 / -1;">
+    <h2>Phase Progress</h2>
+    <div class="phases" id="phase-bar">
+      <div class="phase-step" data-phase="context_assembly">context</div>
+      <div class="phase-step" data-phase="llm_inference">llm</div>
+      <div class="phase-step" data-phase="action_resolution">action</div>
+      <div class="phase-step" data-phase="tool_execution">tool</div>
+      <div class="phase-step" data-phase="result_observation">result</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Handler Chain</h2>
+    <div id="handler-chain"><span style="color:#6e7681">Waiting for events...</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Event Stream</h2>
+    <div id="event-stream"><span style="color:#6e7681">Connecting...</span></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var PHASES = ["context_assembly", "llm_inference", "action_resolution", "tool_execution", "result_observation"];
+  var phaseSteps = document.querySelectorAll(".phase-step");
+  var eventStream = document.getElementById("event-stream");
+  var handlerChain = document.getElementById("handler-chain");
+  var lifecycleBadge = document.getElementById("lifecycle-badge");
+
+  var currentPhaseIndex = -1;
+  var phaseHandlers = {};
+  var firstEvent = true;
+
+  function updateLifecycle(state) {
+    lifecycleBadge.textContent = state;
+    lifecycleBadge.className = "badge-" + state;
+  }
+
+  function updatePhaseBar(phaseName, isAfter) {
+    var idx = PHASES.indexOf(phaseName);
+    if (idx === -1) return;
+    if (isAfter) {
+      phaseSteps[idx].classList.remove("active");
+      phaseSteps[idx].classList.add("done");
+      currentPhaseIndex = idx;
+    } else {
+      phaseSteps[idx].classList.add("active");
+    }
+  }
+
+  function resetPhaseBar() {
+    phaseSteps.forEach(function (s) { s.classList.remove("active", "done"); });
+    currentPhaseIndex = -1;
+    phaseHandlers = {};
+    renderHandlerChain();
+  }
+
+  function formatResult(result) {
+    if (!result) return "";
+    if ("ok" in result) {
+      if (result.ok) return '<span class="result-ok">ok: true</span>';
+      return '<span class="result-block">ok: false (' + (result.reason || "") + ")</span>";
+    }
+    if ("suspend" in result && result.suspend) return '<span class="result-suspend">suspend</span>';
+    if ("abort" in result && result.abort) return '<span class="result-abort">abort</span>';
+    if ("error" in result) return '<span class="result-error">error: ' + (result.error?.message || result.error) + "</span>";
+    return JSON.stringify(result);
+  }
+
+  function renderHandlerChain() {
+    if (Object.keys(phaseHandlers).length === 0) {
+      handlerChain.innerHTML = '<span style="color:#6e7681">Waiting for events...</span>';
+      return;
+    }
+    var html = "";
+    PHASES.forEach(function (phase) {
+      var handlers = phaseHandlers[phase];
+      if (!handlers || handlers.length === 0) return;
+      html += '<div class="phase-label">' + phase + "</div>";
+      handlers.forEach(function (h) {
+        html += '<div class="handler-entry">';
+        html += '<span class="handler-name">' + (h.name || "anon") + "</span>";
+        html += '<span class="handler-priority">p' + (h.priority != null ? h.priority : "?") + "</span>";
+        html += '<span class="handler-result">' + formatResult(h.result) + "</span>";
+        html += "</div>";
+      });
+    });
+    handlerChain.innerHTML = html;
+  }
+
+  function addEvent(type, payload, timestamp) {
+    if (firstEvent) {
+      eventStream.innerHTML = "";
+      firstEvent = false;
+    }
+    var entry = document.createElement("div");
+    entry.className = "event-entry";
+    var ts = new Date(timestamp).toLocaleTimeString();
+    entry.innerHTML =
+      '<div><span class="event-ts">' + ts + '</span><span class="event-type">' + type + "</span></div>" +
+      '<div class="event-payload">' + JSON.stringify(payload).slice(0, 200) + "</div>";
+    eventStream.appendChild(entry);
+    eventStream.scrollTop = eventStream.scrollHeight;
+  }
+
+  // Connect to SSE
+  var es = new EventSource("/events");
+
+  es.addEventListener("turn:start", function (e) {
+    var data = JSON.parse(e.data);
+    resetPhaseBar();
+    updateLifecycle("running");
+    addEvent("turn:start", data.payload, data.timestamp);
+  });
+
+  es.addEventListener("turn:end", function (e) {
+    var data = JSON.parse(e.data);
+    var status = (data.payload && data.payload.status) || "completed";
+    if (status === "suspended") updateLifecycle("paused");
+    else if (status === "errored") updateLifecycle("errored");
+    else if (status === "aborted") updateLifecycle("cancelled");
+    else updateLifecycle("completed");
+    addEvent("turn:end", data.payload, data.timestamp);
+  });
+
+  es.addEventListener("phase:before", function (e) {
+    var data = JSON.parse(e.data);
+    var pn = data.payload && data.payload.phaseName;
+    updatePhaseBar(pn, false);
+    if (!phaseHandlers[pn]) phaseHandlers[pn] = [];
+    addEvent("phase:before", { phaseName: pn }, data.timestamp);
+  });
+
+  es.addEventListener("phase:after", function (e) {
+    var data = JSON.parse(e.data);
+    var pn = data.payload && data.payload.phaseName;
+    updatePhaseBar(pn, true);
+    addEvent("phase:after", { phaseName: pn }, data.timestamp);
+  });
+
+  es.addEventListener("chain:start", function (e) {
+    var data = JSON.parse(e.data);
+    resetPhaseBar();
+    updateLifecycle("running");
+    addEvent("chain:start", data.payload, data.timestamp);
+  });
+
+  es.addEventListener("chain:end", function (e) {
+    var data = JSON.parse(e.data);
+    addEvent("chain:end", data.payload, data.timestamp);
+  });
+
+  es.addEventListener("handler:result", function (e) {
+    var data = JSON.parse(e.data);
+    var phaseName = data.payload && data.payload.phaseName;
+    if (phaseName && phaseHandlers[phaseName]) {
+      phaseHandlers[phaseName].push({
+        name: data.payload.handlerName,
+        priority: data.payload.priority,
+        result: data.payload.result,
+      });
+      renderHandlerChain();
+    }
+    addEvent("handler:result", data.payload, data.timestamp);
+  });
+
+  es.onerror = function () {
+    addEvent("error", { message: "SSE connection lost, reconnecting..." }, Date.now());
+  };
+})();
+</script>
+</body>
+</html>

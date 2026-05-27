@@ -23,11 +23,15 @@ export { SqliteCheckpointStore } from "./sqlite-checkpoint-store.js";
 
 // --- Harness ---
 export { Harness } from "./harness.js";
-export type { TurnResult, HarnessOptions } from "./harness.js";
+export type { TurnResult, ChainResult, ChainOptions, HarnessOptions } from "./harness.js";
 
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
 export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
+
+// --- DevServer ---
+export { DevServer } from "./dev-server.js";
+export type { DevServerOptions, SSEEvent } from "./dev-server.js";
 
 // --- PromptFragment ---
 
