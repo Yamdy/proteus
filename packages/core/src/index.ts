@@ -5,7 +5,7 @@ export { EventBus } from "./event-bus.js";
 export type { HandlerResult, HandlerFn } from "./event-bus.js";
 
 // --- Handler Registry ---
-export { HandlerRegistry } from "./handler-registry.js";
+export { HandlerRegistry, registerBuiltins, BUILTIN_HANDLERS } from "./handler-registry.js";
 export type { HandlerSnapshot, RegistrySnapshot } from "./handler-registry.js";
 
 // --- Three-Region Context ---

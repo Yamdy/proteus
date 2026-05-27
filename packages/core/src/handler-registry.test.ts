@@ -1,20 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { HandlerRegistry } from "./handler-registry.js";
+import { HandlerRegistry, registerBuiltins, BUILTIN_HANDLERS } from "./handler-registry.js";
 import type { HandlerDefinition } from "./index.js";
 
 describe("HandlerRegistry", () => {
   it("registers a handler and returns it for matching events", () => {
     const registry = new HandlerRegistry();
-    const handler: HandlerDefinition = {
+    registry.register({
       name: "test-handler",
-      events: ["custom:event"],
+      events: ["turn:end"],
       trust: 1,
       handle: async () => ({ ok: true }),
-    };
+    });
 
-    registry.register(handler);
-
-    const handlers = registry.getHandlers("custom:event");
+    const handlers = registry.getHandlers("turn:end");
     expect(handlers).toHaveLength(1);
     expect(handlers[0].name).toBe("test-handler");
   });
@@ -23,27 +21,27 @@ describe("HandlerRegistry", () => {
     const registry = new HandlerRegistry();
     registry.register({
       name: "low-priority",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 200,
       trust: 1,
       handle: async () => ({ ok: true }),
     });
     registry.register({
       name: "high-priority",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 50,
       trust: 1,
       handle: async () => ({ ok: true }),
     });
     registry.register({
       name: "medium-priority",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 100,
       trust: 1,
       handle: async () => ({ ok: true }),
     });
 
-    const handlers = registry.getHandlers("custom:event");
+    const handlers = registry.getHandlers("turn:end");
 
     expect(handlers.map((h) => h.name)).toEqual([
       "high-priority",
@@ -56,27 +54,27 @@ describe("HandlerRegistry", () => {
     const registry = new HandlerRegistry();
     registry.register({
       name: "first",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 100,
       trust: 1,
       handle: async () => ({ ok: true }),
     });
     registry.register({
       name: "second",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 100,
       trust: 1,
       handle: async () => ({ ok: true }),
     });
     registry.register({
       name: "third",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 100,
       trust: 1,
       handle: async () => ({ ok: true }),
     });
 
-    const handlers = registry.getHandlers("custom:event");
+    const handlers = registry.getHandlers("turn:end");
 
     expect(handlers.map((h) => h.name)).toEqual([
       "first",
@@ -89,20 +87,20 @@ describe("HandlerRegistry", () => {
     const registry = new HandlerRegistry();
     registry.register({
       name: "to-remove",
-      events: ["custom:event"],
+      events: ["turn:end"],
       trust: 1,
       handle: async () => ({ ok: true }),
     });
     registry.register({
       name: "to-keep",
-      events: ["custom:event"],
+      events: ["turn:end"],
       trust: 1,
       handle: async () => ({ ok: true }),
     });
 
     registry.unregister("to-remove");
 
-    const handlers = registry.getHandlers("custom:event");
+    const handlers = registry.getHandlers("turn:end");
     expect(handlers).toHaveLength(1);
     expect(handlers[0].name).toBe("to-keep");
   });
@@ -111,7 +109,7 @@ describe("HandlerRegistry", () => {
     const registry = new HandlerRegistry();
     registry.register({
       name: "original",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 100,
       trust: 1,
       handle: async () => ({ ok: true }),
@@ -119,13 +117,13 @@ describe("HandlerRegistry", () => {
 
     registry.replace("original", {
       name: "replacement",
-      events: ["custom:event"],
+      events: ["turn:end"],
       priority: 50,
       trust: 2,
       handle: async () => ({ ok: true, value: "replaced" }),
     });
 
-    const handlers = registry.getHandlers("custom:event");
+    const handlers = registry.getHandlers("turn:end");
     expect(handlers).toHaveLength(1);
     expect(handlers[0].name).toBe("replacement");
     expect(handlers[0].priority).toBe(50);
@@ -183,53 +181,38 @@ describe("HandlerRegistry", () => {
     });
   });
 
-  describe("built-in handlers auto-registration", () => {
-    it("auto-registers checkpoint handler for turn:end at construction", () => {
+  describe("registerBuiltins", () => {
+    it("registers all built-in handlers", () => {
       const registry = new HandlerRegistry();
-      const handlers = registry.getHandlers("turn:end");
-      const checkpoint = handlers.find((h) => h.name === "checkpoint");
-      expect(checkpoint).toBeDefined();
-      expect(checkpoint!.trust).toBe(3);
-      expect(checkpoint!.builtin).toBe(true);
-      expect(checkpoint!.priority).toBeLessThanOrEqual(90);
+      registerBuiltins(registry);
+
+      const turnEnd = registry.getHandlers("turn:end");
+      expect(turnEnd.some((h) => h.name === "checkpoint")).toBe(true);
+
+      const llmResp = registry.getHandlers("llm:response");
+      expect(llmResp.some((h) => h.name === "cost-tracker")).toBe(true);
+
+      const phaseBefore = registry.getHandlers("phase:before");
+      expect(phaseBefore.some((h) => h.name === "freeze-guard")).toBe(true);
+      expect(phaseBefore.some((h) => h.name === "otel-bridge")).toBe(true);
     });
 
-    it("auto-registers cost-tracker for llm:response at construction", () => {
-      const registry = new HandlerRegistry();
-      const handlers = registry.getHandlers("llm:response");
-      const costTracker = handlers.find((h) => h.name === "cost-tracker");
-      expect(costTracker).toBeDefined();
-      expect(costTracker!.trust).toBe(3);
-      expect(costTracker!.builtin).toBe(true);
-    });
-
-    it("auto-registers otel-bridge for phase events at construction", () => {
-      const registry = new HandlerRegistry();
-      const before = registry.getHandlers("phase:before");
-      const after = registry.getHandlers("phase:after");
-      const otel = before
-        .concat(after)
-        .find((h) => h.name === "otel-bridge");
-      expect(otel).toBeDefined();
-      expect(otel!.trust).toBe(3);
-    });
-
-    it("auto-registers freeze-guard for phase:before at construction", () => {
-      const registry = new HandlerRegistry();
-      const handlers = registry.getHandlers("phase:before");
-      const freezeGuard = handlers.find((h) => h.name === "freeze-guard");
-      expect(freezeGuard).toBeDefined();
-      expect(freezeGuard!.trust).toBe(3);
-      expect(freezeGuard!.priority).toBeLessThanOrEqual(90);
+    it("all built-in handlers have priority 0-90 and trust 3", () => {
+      expect(BUILTIN_HANDLERS.length).toBeGreaterThan(0);
+      for (const h of BUILTIN_HANDLERS) {
+        expect(h.priority).toBeLessThanOrEqual(90);
+        expect(h.trust).toBe(3);
+        expect(h.builtin).toBe(true);
+      }
     });
   });
 
   describe("serialize / deserialize", () => {
-    it("serialize returns JSON-safe snapshot of all handler metadata", () => {
+    it("serialize returns JSON-safe snapshot of handler metadata", () => {
       const registry = new HandlerRegistry();
       registry.register({
         name: "test-handler",
-        events: ["custom:event"],
+        events: ["turn:end"],
         phases: ["action_resolution"],
         priority: 50,
         trust: 2,
@@ -239,19 +222,16 @@ describe("HandlerRegistry", () => {
       const snapshot = registry.serialize();
 
       expect(() => JSON.stringify(snapshot)).not.toThrow();
-      // 4 built-in + 1 user handler
-      expect(snapshot.handlers).toHaveLength(5);
-      const userHandler = snapshot.handlers.find((h) => h.name === "test-handler");
-      expect(userHandler).toEqual({
+      expect(snapshot.handlers).toHaveLength(1);
+      expect(snapshot.handlers[0]).toEqual({
         name: "test-handler",
-        events: ["custom:event"],
+        events: ["turn:end"],
         phases: ["action_resolution"],
         priority: 50,
         trust: 2,
         builtin: false,
       });
-      // Should NOT contain handle function
-      expect(userHandler).not.toHaveProperty("handle");
+      expect(snapshot.handlers[0]).not.toHaveProperty("handle");
     });
 
     it("deserialize rebuilds registry with re-attached handler functions", () => {
@@ -259,7 +239,7 @@ describe("HandlerRegistry", () => {
       const registry = new HandlerRegistry();
       registry.register({
         name: "test-handler",
-        events: ["custom:event"],
+        events: ["turn:end"],
         priority: 50,
         trust: 2,
         handle: handlerFn,
@@ -270,7 +250,7 @@ describe("HandlerRegistry", () => {
         "test-handler": handlerFn,
       });
 
-      const handlers = restored.getHandlers("custom:event");
+      const handlers = restored.getHandlers("turn:end");
       expect(handlers).toHaveLength(1);
       expect(handlers[0].name).toBe("test-handler");
       expect(handlers[0].handle).toBe(handlerFn);
@@ -283,14 +263,14 @@ describe("HandlerRegistry", () => {
       const registry = new HandlerRegistry();
       registry.register({
         name: "low",
-        events: ["custom:event"],
+        events: ["turn:end"],
         priority: 200,
         trust: 1,
         handle: fn1,
       });
       registry.register({
         name: "high",
-        events: ["custom:event"],
+        events: ["turn:end"],
         priority: 50,
         trust: 1,
         handle: fn2,
@@ -302,7 +282,7 @@ describe("HandlerRegistry", () => {
         high: fn2,
       });
 
-      const handlers = restored.getHandlers("custom:event");
+      const handlers = restored.getHandlers("turn:end");
       expect(handlers.map((h) => h.name)).toEqual(["high", "low"]);
     });
   });

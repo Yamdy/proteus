@@ -19,7 +19,7 @@ export interface RegistrySnapshot {
   handlers: HandlerSnapshot[];
 }
 
-const BUILTIN_HANDLERS: HandlerDefinition[] = [
+export const BUILTIN_HANDLERS: HandlerDefinition[] = [
   {
     name: "checkpoint",
     events: ["turn:end"],
@@ -55,15 +55,15 @@ const BUILTIN_HANDLERS: HandlerDefinition[] = [
   },
 ];
 
+export function registerBuiltins(registry: HandlerRegistry): void {
+  for (const h of BUILTIN_HANDLERS) {
+    registry.register(h);
+  }
+}
+
 export class HandlerRegistry {
   private handlers: RegisteredHandler[] = [];
   private nextOrder = 0;
-
-  constructor() {
-    for (const h of BUILTIN_HANDLERS) {
-      this.register(h);
-    }
-  }
 
   register(handler: HandlerDefinition): void {
     this.handlers.push({ handler, insertionOrder: this.nextOrder++ });
@@ -117,7 +117,6 @@ export class HandlerRegistry {
   ): HandlerRegistry {
     const registry = new HandlerRegistry();
     for (const sh of snapshot.handlers) {
-      if (sh.builtin) continue; // already registered by constructor
       const handle = handlerSources[sh.name];
       if (!handle) {
         throw new Error(`Handler function not found for "${sh.name}"`);
