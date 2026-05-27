@@ -38,6 +38,9 @@ importers:
       ai:
         specifier: ^4.1.0
         version: 4.3.19(react@19.2.6)(zod@3.25.76)
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
       zod:
         specifier: ^3.25.0
         version: 3.25.76
@@ -45,6 +48,9 @@ importers:
         specifier: ^3.25.0
         version: 3.25.2(zod@3.25.76)
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -1183,6 +1189,9 @@ packages:
 
   '@types/aws-lambda@8.10.143':
     resolution: {integrity: sha512-u5vzlcR14ge/4pMTTMDQr3MF0wEe38B2F9o84uC4F43vN5DGTy63npRrB6jQhyt+C0lGv4ZfiRcRkqJoZuPnmg==}
+
+  '@types/better-sqlite3@7.6.13':
+    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
 
   '@types/bunyan@1.8.9':
     resolution: {integrity: sha512-ZqS9JGpBxVOvsawzmVt30sP++gSQMTejCkIAQ3VdadOcRE8izTyW66hufvwLeH+YEGP6Js2AW7Gz+RMyvrEbmw==}
@@ -3618,6 +3627,10 @@ snapshots:
     optional: true
 
   '@types/aws-lambda@8.10.143': {}
+
+  '@types/better-sqlite3@7.6.13':
+    dependencies:
+      '@types/node': 25.9.1
 
   '@types/bunyan@1.8.9':
     dependencies:

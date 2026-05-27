@@ -24,6 +24,7 @@ export type {
   CheckpointStore,
   SessionMeta,
   InMemoryCheckpointStore,
+  SqliteCheckpointStore,
   Harness,
   TurnResult,
 } from "@proteus/core";
