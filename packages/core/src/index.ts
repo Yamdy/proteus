@@ -4,6 +4,18 @@
 export { EventBus } from "./event-bus.js";
 export type { HandlerResult, HandlerFn } from "./event-bus.js";
 
+// --- Three-Region Context ---
+export {
+  AgentContext,
+  SessionContext,
+  TurnContext,
+  HandlerContext,
+  FrozenContext,
+  CostTracker,
+  WorkingMemory,
+} from "./context.js";
+export type { HandlerRegistryLike } from "./context.js";
+
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
 export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
