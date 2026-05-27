@@ -13,6 +13,11 @@ export type {
   HandlerFn,
   PhaseName,
   HandlerDefinition,
+  CheckpointStore,
+  SessionMeta,
+  InMemoryCheckpointStore,
+  Harness,
+  TurnResult,
 } from "@proteus/core";
 
 // Server entry point — will be implemented

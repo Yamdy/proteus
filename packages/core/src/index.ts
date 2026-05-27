@@ -16,6 +16,14 @@ export {
 } from "./context.js";
 export type { HandlerEngineHandle } from "./context.js";
 
+// --- CheckpointStore ---
+export { InMemoryCheckpointStore } from "./checkpoint-store.js";
+export type { CheckpointStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord } from "./checkpoint-store.js";
+
+// --- Harness ---
+export { Harness } from "./harness.js";
+export type { TurnResult, HarnessOptions } from "./harness.js";
+
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
 export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";

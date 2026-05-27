@@ -21,6 +21,11 @@ export type {
   LifecycleStateMachine,
   LifecycleState,
   LifecycleEvent,
+  CheckpointStore,
+  SessionMeta,
+  InMemoryCheckpointStore,
+  Harness,
+  TurnResult,
 } from "@proteus/core";
 
 // SDK entry point — will be implemented
