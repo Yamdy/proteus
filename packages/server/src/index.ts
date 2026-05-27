@@ -7,8 +7,12 @@ export type {
   ToolResult,
   LLMProvider,
   SessionConfig,
-  AgentLoopCallbacks,
-  AgentLoopConfig,
+  EventBus,
+  LifecycleStateMachine,
+  HandlerResult,
+  HandlerFn,
+  PhaseName,
+  HandlerDefinition,
 } from "@proteus/core";
 
 // Server entry point — will be implemented
