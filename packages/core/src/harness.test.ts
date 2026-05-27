@@ -4,7 +4,6 @@ import { AgentContext, SessionContext } from "./context.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
 import type { LLMProvider } from "./index.js";
-import { LifecycleStateMachine } from "./lifecycle.js";
 
 function stubLLM(): LLMProvider {
   return {
@@ -334,7 +333,7 @@ describe("Harness — runChain", () => {
       events: ["phase:before"],
       priority: 1,
       trust: 1,
-      handle: async (ctx: any) => {
+      handle: async (_ctx: any) => {
         callCount++;
         if (callCount === 1) {
           return { suspend: true as const, pendingInput: "waiting" };

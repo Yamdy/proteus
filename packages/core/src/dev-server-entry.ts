@@ -62,7 +62,7 @@ async function main() {
   console.log(`  Open the URL above in your browser to see the Harness Visualizer.\n`);
 
   // Bridge: HandlerEngine events → SSE
-  const bridge = (eventType: string) => (ctx: any) => {
+  const bridge = (eventType: string) => async (ctx: any) => {
     devServer.broadcast({
       type: eventType as SSEEvent["type"],
       timestamp: Date.now(),

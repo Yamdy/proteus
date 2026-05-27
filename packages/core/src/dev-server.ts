@@ -1,4 +1,5 @@
 import http from "node:http";
+import type { AddressInfo } from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,7 +30,7 @@ export class DevServer {
     return this.clients.size;
   }
 
-  async start(): Promise<http.AddressInfo> {
+  async start(): Promise<AddressInfo> {
     this.server = http.createServer((req, res) => {
       if (req.url === "/" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -53,7 +54,7 @@ export class DevServer {
 
     return new Promise((resolve) => {
       this.server!.listen(this.port, "127.0.0.1", () => {
-        resolve(this.server!.address() as http.AddressInfo);
+        resolve(this.server!.address() as AddressInfo);
       });
     });
   }
