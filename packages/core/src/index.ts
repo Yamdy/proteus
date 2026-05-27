@@ -1,5 +1,13 @@
 // @proteus/core — public API surface
 
+// --- Event Bus ---
+export { EventBus } from "./event-bus.js";
+export type { HandlerResult, HandlerFn } from "./event-bus.js";
+
+// --- Lifecycle ---
+export { LifecycleStateMachine } from "./lifecycle.js";
+export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
+
 // --- Turn & Chain ---
 
 export interface TurnContext {
@@ -80,39 +88,23 @@ export interface LLMProvider {
   countTokens(text: string): number;
 }
 
-// --- Hook & Plugin ---
+// --- Handler ---
 
-export type HookPoint =
-  | "context:assembly"
-  | "llm:inference"
-  | "action:resolution"
-  | "tool:execution"
-  | "result:observation";
+export type PhaseName =
+  | "context_assembly"
+  | "llm_inference"
+  | "action_resolution"
+  | "tool_execution"
+  | "result_observation";
 
-export type PluginNature = "observer" | "interceptor";
-
-export interface PluginManifest {
+export interface HandlerDefinition {
   name: string;
-  version: string;
-  trust: "trusted" | "isolated" | "sandboxed";
-  permissions?: string[];
+  phases?: PhaseName[];
+  events?: string[];
+  priority?: number;
+  trust: 0 | 1 | 2 | 3;
+  handle: (ctx: unknown) => Promise<import("./event-bus.js").HandlerResult>;
 }
-
-export interface ObserverPlugin {
-  manifest: PluginManifest & { trust: "observer" };
-  onHook(hookPoint: HookPoint, context: Readonly<TurnContext>): void;
-}
-
-export interface InterceptorPlugin {
-  manifest: PluginManifest;
-  onHook(
-    hookPoint: HookPoint,
-    context: TurnContext,
-    next: () => Promise<void>,
-  ): Promise<void>;
-}
-
-export type Plugin = ObserverPlugin | InterceptorPlugin;
 
 // --- Session & Memory ---
 
@@ -132,19 +124,4 @@ export interface WorkingMemory {
   getMessages(): LLMMessage[];
   truncate(maxTokens: number): void;
   clear(): void;
-}
-
-// --- Agent Loop ---
-
-export interface AgentLoopCallbacks {
-  onTurnStart?(turn: TurnContext): void;
-  onTurnEnd?(turn: TurnContext, result: ToolResult[]): void;
-  onChainEnd?(chainId: string): void;
-  onError?(error: Error, context: TurnContext): void;
-}
-
-export interface AgentLoopConfig {
-  maxTurns: number;
-  maxTokensPerTurn: number;
-  truncationStrategy: "fifo" | "summarize";
 }
