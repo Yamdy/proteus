@@ -22,9 +22,9 @@ A conversation container with independent configuration. The primary unit of use
 
 Key properties:
 - **Owns**: `SessionContext` (Working Memory, SessionConfig, CostTracker), Conversations (each containing multiple Chains), Level 0-2 config, Git workspace (for self_modify artifacts)
-- **Does NOT own**: `AgentContext` (shared across Sessions), Event Bus, OTel pipeline — these are shared
+- **Does NOT own**: `AgentContext` (shared across Sessions), HandlerEngine, OTel pipeline — these are shared
 
-Multiple Sessions can share one Agent Loop runtime (especially in Server mode). self_modify changes are scoped to the Session's `HandlerRegistry` — Session A's self-modification does not affect Session B. Each Session's checkpoint data is isolated in the CheckpointStore (keyed by session_id).
+Multiple Sessions can share one Agent Loop runtime (especially in Server mode). self_modify changes are scoped to the Session's `HandlerEngine` — Session A's self-modification does not affect Session B. Each Session's checkpoint data is isolated in the CheckpointStore (keyed by session_id).
 
 SDK mode: typically one Session per process. Server mode: one Session per user connection, multiple Sessions per Agent Loop (multi-tenant isolation).
 
@@ -43,7 +43,7 @@ The agent's ability to modify itself at runtime. Dual-channel:
 - **Behavioral channel**: `self_modify` tool at Tool Execution stage (modifies "what the agent can do")
 
 ### Stage Execution Model
-Each Turn stage executes via an Event Bus with handler return values controlling flow. The 5-phase order is a Level 3 invariant — events are emitted in fixed sequence by the Harness core loop.
+Each Turn stage executes via the HandlerEngine with handler return values controlling flow. The 5-phase order is a Level 3 invariant — events are emitted in fixed sequence by the Harness core loop.
 
 **Event emission per phase:**
 ```
@@ -60,8 +60,12 @@ phase:before  →  Processor (core logic)  →  phase:after
 
 **Handler execution order:** Handlers are sorted by `priority` (ascending). Multiple handlers on the same event compose via sequential execution, not nesting. This replaces the onion model with a flat priority chain — semantically equivalent, simpler to implement and debug.
 
-### Handler Registry
-Handlers are registered with metadata and managed by a `HandlerRegistry`:
+### HandlerEngine (merged EventBus + HandlerRegistry)
+Single class serves all handler registration, event emission, and flow control needs. Replaces the earlier separate EventBus and HandlerRegistry modules.
+
+**Two handler kinds:**
+- **Interceptors** — registered via `engine.register(handler)`. Execute in priority order; can short-circuit subsequent handlers (`ok:false`, `abort`, `suspend`, non-recoverable `error`).
+- **Observers** — registered via `engine.observe(event, fn, priority, name)`. Always execute regardless of short-circuit state. Non-replaceable, non-unregisterable.
 
 ```typescript
 interface HandlerDefinition {
@@ -70,19 +74,21 @@ interface HandlerDefinition {
   events?: string[];               // scope to specific events
   priority?: number;               // lower = earlier execution, default 100
   trust: 0 | 1 | 2 | 3;           // isolation tier
+  builtin?: boolean;               // true = protected from unregister/replace
   handle: HandlerFn;               // the handler function
 }
 ```
 
-- **Registration**: `registry.register(handler)` — adds handler, invalidates sorted cache
-- **Unregistration**: `registry.unregister(name)` — removes handler
-- **Replacement**: `registry.replace(name, handler)` — used by self_modify
-- **Serialization**: `registry.serialize()` / `HandlerRegistry.deserialize()` — for checkpoint snapshots
+- **Registration**: `engine.register(handler)` — adds interceptor
+- **Observation**: `engine.observe(event, fn, priority, name)` — adds observer (always runs)
+- **Unregistration**: `engine.unregister(name)` — removes interceptor (throws for builtins/observers)
+- **Replacement**: `engine.replace(name, handler)` — replaces interceptor (throws for builtins/observers)
+- **Emission**: `engine.emit(event, payload?)` — executes handlers with short-circuit semantics
+- **Serialization**: `engine.serialize()` / `HandlerEngine.deserialize()` — for checkpoint snapshots
 
-Built-in handlers (priority 0-90): checkpoint (turn:end), cost tracker (llm:response), OTel bridge (phase events), freeze guard (phase:before). Self-modify can register/replace Level 1-2 handlers; Level 3 built-ins are protected.
+Built-in handlers (priority 0-90, trust 3): checkpoint (turn:end), cost tracker (llm:response), OTel bridge (phase events), freeze guard (phase:before). Self-modify can register/replace Level 1-2 handlers; Level 3 built-ins are protected.
 
-### Event Bus (replaces EventStore)
-Single event emitter serves all observation, interception, and streaming needs. Multiple consumers subscribe independently:
+Multiple consumers subscribe independently:
 
 | Consumer | Events | Purpose |
 |---|---|---|
@@ -161,7 +167,7 @@ Trace = Chain, Span = Turn, Child Span = Stage. Granularity stops at Stage level
 
 Three-layer safety: CheckpointStore config snapshots + git repo + Watchdog process. No approval flow, no policy engine, no shadow mode (extensible later via plugins).
 
-**CheckpointStore Config Snapshots**: before self_modify hot-loads new handlers, the current `HandlerRegistry` state is serialized and saved to `config_snapshots` table. Rollback = restore snapshot + re-register handlers. Fast, in-process recovery.
+**CheckpointStore Config Snapshots**: before self_modify hot-loads new handlers, the current `HandlerEngine` state is serialized and saved to `config_snapshots` table. Rollback = restore snapshot + re-register handlers. Fast, in-process recovery.
 
 **Git Snapshots**: all self_modify artifacts (Level 1 config + Level 2 code) live in a git repo. Before hot-load, Proteus auto-commits with trace_id in the message. Rollback = `git revert`. Studio shows self-bootstrap history as git log + diff.
 
@@ -204,7 +210,7 @@ AgentContext (process-level, rarely changes)
        └─ TurnContext (per-turn, ephemeral, rebuilt each turn)
 ```
 
-**AgentContext** — lives for the process lifetime. Holds `LLMProvider`, tools registry, `HandlerRegistry`, and lifecycle state machine. Handlers can read agent config; only self_modify can change it.
+**AgentContext** — lives for the process lifetime. Holds `LLMProvider`, tools registry, `HandlerEngine`, and lifecycle state machine. Handlers can read agent config; only self_modify can change it.
 
 **SessionContext** — lives for a session (user connection). Holds `SessionConfig` (Level 0), `WorkingMemory` (message history), and `CostTracker`. Persisted to CheckpointStore. Multiple sessions share one AgentContext.
 
@@ -264,7 +270,7 @@ interface ToolResult {
 ```
 proteus/
 ├── packages/
-│   ├── core/         ← Agent Loop + Event Bus/Handler + OTel + self_modify
+│   ├── core/         ← Agent Loop + HandlerEngine + OTel + self_modify
 │   ├── sdk/          ← references core, exposes language API
 │   ├── server/       ← references core, HTTP/WS + sessions + Studio API
 │   └── studio/       ← independent SPA (Vue 3 + Vite + Tailwind)

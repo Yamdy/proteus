@@ -17,7 +17,7 @@ export type {
   HandlerFn,
   SessionConfig,
   WorkingMemory,
-  EventBus,
+  HandlerEngine,
   LifecycleStateMachine,
   LifecycleState,
   LifecycleEvent,

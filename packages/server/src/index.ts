@@ -7,7 +7,7 @@ export type {
   ToolResult,
   LLMProvider,
   SessionConfig,
-  EventBus,
+  HandlerEngine,
   LifecycleStateMachine,
   HandlerResult,
   HandlerFn,

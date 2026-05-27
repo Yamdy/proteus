@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded in part — Decision 1 (Event Bus + HandlerRegistry) was further consolidated into `HandlerEngine` (see issues #12, #13). The EventBus and HandlerRegistry modules were merged into a single class with observer/interceptor semantics. ADR-0003 Decisions 2-6 remain valid.
 
 ## Context
 
@@ -75,7 +75,7 @@ AgentContext (process-level, rarely changes)
 interface AgentContext {
   readonly provider: LLMProvider;
   readonly tools: Map<string, Tool>;
-  readonly handlers: HandlerRegistry;       // Level 1-2, self-modify can change
+  readonly handlers: HandlerEngine;         // Level 1-2, self-modify can change
   readonly lifecycle: LifecycleStateMachine;
 }
 ```
