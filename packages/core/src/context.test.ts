@@ -6,7 +6,7 @@ import {
   HandlerContext,
   FrozenContext,
 } from "./context.js";
-import type { LLMProvider, HandlerDefinition } from "./index.js";
+import type { LLMProvider } from "./index.js";
 
 // --- Test helpers ---
 
@@ -22,10 +22,6 @@ function stubLLMProvider(): LLMProvider {
   };
 }
 
-function makeHandlerDef(name: string): HandlerDefinition {
-  return { name, trust: 1, handle: async () => ({ ok: true }) };
-}
-
 // --- Tests ---
 
 describe("AgentContext", () => {
@@ -39,15 +35,19 @@ describe("AgentContext", () => {
     expect(agent.tools).toBeInstanceOf(Map);
   });
 
-  it("exposes handlerRegistry as read-only", () => {
+  it("exposes handlerEngine as read-only with getHandlers and emit", async () => {
     const agent = new AgentContext({
       llm: stubLLMProvider(),
       tools: new Map(),
     });
 
-    // handlerRegistry is a placeholder until #3 merges
-    expect(agent.handlerRegistry).toBeDefined();
-    expect(typeof agent.handlerRegistry.getHandlers).toBe("function");
+    expect(agent.handlerEngine).toBeDefined();
+    expect(typeof agent.handlerEngine.getHandlers).toBe("function");
+    expect(typeof agent.handlerEngine.emit).toBe("function");
+
+    // default stub returns empty
+    expect(agent.handlerEngine.getHandlers("turn:end")).toEqual([]);
+    expect(await agent.handlerEngine.emit("turn:end")).toEqual([]);
   });
 });
 

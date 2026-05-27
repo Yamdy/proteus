@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { HandlerRegistry, registerBuiltins, BUILTIN_HANDLERS } from "./handler-registry.js";
-import type { HandlerDefinition } from "./index.js";
 
 describe("HandlerRegistry", () => {
   it("registers a handler and returns it for matching events", () => {
@@ -235,7 +234,7 @@ describe("HandlerRegistry", () => {
     });
 
     it("deserialize rebuilds registry with re-attached handler functions", () => {
-      const handlerFn = async () => ({ ok: true });
+      const handlerFn = async () => ({ ok: true as const });
       const registry = new HandlerRegistry();
       registry.register({
         name: "test-handler",
@@ -257,8 +256,8 @@ describe("HandlerRegistry", () => {
     });
 
     it("deserialize preserves priority ordering", () => {
-      const fn1 = async () => ({ ok: true });
-      const fn2 = async () => ({ ok: true });
+      const fn1 = async () => ({ ok: true as const });
+      const fn2 = async () => ({ ok: true as const });
 
       const registry = new HandlerRegistry();
       registry.register({

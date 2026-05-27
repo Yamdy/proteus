@@ -1,0 +1,199 @@
+import type { HandlerDefinition } from "./index.js";
+
+export type HandlerResult =
+  | { ok: true; value?: unknown; transform?: boolean }
+  | { ok: false; reason: string }
+  | { abort: boolean; reason: string; retryFrom?: number }
+  | { suspend: boolean; pendingInput?: unknown }
+  | { error: Error; recoverable?: boolean };
+
+export type HandlerFn = (ctx: unknown) => Promise<HandlerResult>;
+
+function shouldShortCircuit(result: HandlerResult): boolean {
+  if ("ok" in result) return !result.ok;
+  if ("abort" in result) return result.abort;
+  if ("suspend" in result) return result.suspend;
+  if ("error" in result) return result.recoverable === false;
+  return false;
+}
+
+interface RegisteredHandler {
+  handler: HandlerDefinition;
+  kind: "observer" | "interceptor";
+  insertionOrder: number;
+}
+
+export interface HandlerSnapshot {
+  name: string;
+  phases?: string[];
+  events?: string[];
+  priority?: number;
+  trust: 0 | 1 | 2 | 3;
+  builtin: boolean;
+  kind: "observer" | "interceptor";
+}
+
+export interface RegistrySnapshot {
+  handlers: HandlerSnapshot[];
+}
+
+export const BUILTIN_HANDLERS: HandlerDefinition[] = [
+  {
+    name: "checkpoint",
+    events: ["turn:end"],
+    priority: 10,
+    trust: 3,
+    builtin: true,
+    handle: async () => ({ ok: true }),
+  },
+  {
+    name: "cost-tracker",
+    events: ["llm:response"],
+    priority: 20,
+    trust: 3,
+    builtin: true,
+    handle: async () => ({ ok: true }),
+  },
+  {
+    name: "otel-bridge",
+    phases: ["context_assembly", "llm_inference", "action_resolution", "tool_execution", "result_observation"],
+    events: ["phase:before", "phase:after"],
+    priority: 30,
+    trust: 3,
+    builtin: true,
+    handle: async () => ({ ok: true }),
+  },
+  {
+    name: "freeze-guard",
+    events: ["phase:before"],
+    priority: 5,
+    trust: 3,
+    builtin: true,
+    handle: async () => ({ ok: true }),
+  },
+];
+
+export function registerBuiltins(engine: HandlerEngine): void {
+  for (const h of BUILTIN_HANDLERS) {
+    engine.register(h);
+  }
+}
+
+export class HandlerEngine {
+  private handlers: RegisteredHandler[] = [];
+  private nextOrder = 0;
+  private emitDepth = 0;
+  private readonly maxEmitDepth: number;
+
+  constructor(opts?: { maxEmitDepth?: number }) {
+    this.maxEmitDepth = opts?.maxEmitDepth ?? 10;
+  }
+
+  register(handler: HandlerDefinition): void {
+    this.handlers.push({ handler, kind: "interceptor", insertionOrder: this.nextOrder++ });
+  }
+
+  observe(event: string, handler: HandlerFn, priority = 100, name = ""): void {
+    this.handlers.push({
+      handler: { name, events: [event], priority, trust: 3, builtin: true, handle: handler },
+      kind: "observer",
+      insertionOrder: this.nextOrder++,
+    });
+  }
+
+  unregister(name: string): void {
+    const rh = this.handlers.find((h) => h.handler.name === name);
+    if (!rh) return;
+    if (rh.kind === "observer") throw new Error(`Cannot unregister observer "${name}"`);
+    if (rh.handler.builtin) throw new Error(`Cannot unregister built-in handler "${name}"`);
+    this.handlers = this.handlers.filter((h) => h.handler.name !== name);
+  }
+
+  replace(name: string, handler: HandlerDefinition): void {
+    const index = this.handlers.findIndex((h) => h.handler.name === name);
+    if (index === -1) throw new Error(`Handler "${name}" not found`);
+    const rh = this.handlers[index];
+    if (rh.kind === "observer") throw new Error(`Cannot replace observer "${name}"`);
+    if (rh.handler.builtin) throw new Error(`Cannot replace built-in handler "${name}"`);
+    this.handlers[index] = { handler, kind: "interceptor", insertionOrder: rh.insertionOrder };
+  }
+
+  getHandlers(event: string): HandlerDefinition[] {
+    return this.handlers
+      .filter((rh) => !rh.handler.events || rh.handler.events.includes(event))
+      .sort((a, b) => {
+        const p = (a.handler.priority ?? 100) - (b.handler.priority ?? 100);
+        return p !== 0 ? p : a.insertionOrder - b.insertionOrder;
+      })
+      .map((rh) => rh.handler);
+  }
+
+  serialize(): RegistrySnapshot {
+    return {
+      handlers: this.handlers.map((rh) => ({
+        name: rh.handler.name,
+        phases: rh.handler.phases,
+        events: rh.handler.events,
+        priority: rh.handler.priority,
+        trust: rh.handler.trust,
+        builtin: rh.handler.builtin ?? false,
+        kind: rh.kind,
+      })),
+    };
+  }
+
+  static deserialize(
+    snapshot: RegistrySnapshot,
+    handlerSources: Record<string, HandlerFn>,
+  ): HandlerEngine {
+    const engine = new HandlerEngine();
+    for (const sh of snapshot.handlers) {
+      const handle = handlerSources[sh.name];
+      if (!handle) throw new Error(`Handler function not found for "${sh.name}"`);
+      if (sh.kind === "observer") {
+        const event = sh.events?.[0] ?? "";
+        engine.observe(event, handle, sh.priority, sh.name);
+      } else {
+        engine.register({
+          name: sh.name,
+          phases: sh.phases as any,
+          events: sh.events,
+          priority: sh.priority,
+          trust: sh.trust,
+          builtin: sh.builtin,
+          handle,
+        });
+      }
+    }
+    return engine;
+  }
+
+  async emit(event: string, payload?: unknown): Promise<HandlerResult[]> {
+    if (this.emitDepth >= this.maxEmitDepth) {
+      throw new Error(
+        `HandlerEngine: re-entrancy depth ${this.emitDepth} exceeds limit ${this.maxEmitDepth}`,
+      );
+    }
+    this.emitDepth++;
+    try {
+      const matching = this.handlers
+        .filter((rh) => !rh.handler.events || rh.handler.events.includes(event))
+        .sort((a, b) => {
+          const p = (a.handler.priority ?? 100) - (b.handler.priority ?? 100);
+          return p !== 0 ? p : a.insertionOrder - b.insertionOrder;
+        });
+      const results: HandlerResult[] = [];
+      let interceptorsShortCircuited = false;
+      for (const rh of matching) {
+        if (rh.kind === "interceptor" && interceptorsShortCircuited) continue;
+        results.push(await rh.handler.handle(payload));
+        if (rh.kind === "interceptor" && shouldShortCircuit(results[results.length - 1])) {
+          interceptorsShortCircuited = true;
+        }
+      }
+      return results;
+    } finally {
+      this.emitDepth--;
+    }
+  }
+}

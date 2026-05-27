@@ -7,12 +7,13 @@ import type {
   ToolResult,
   HandlerDefinition,
 } from "./index.js";
-import type { HandlerResult } from "./event-bus.js";
+import type { HandlerResult } from "./handler-engine.js";
 
-// --- Placeholder for HandlerRegistry (#3 will provide real one) ---
+// --- HandlerEngineHandle (read-only interface for AgentContext) ---
 
-export interface HandlerRegistryLike {
+export interface HandlerEngineHandle {
   getHandlers(event: string): HandlerDefinition[];
+  emit(event: string, payload?: unknown): Promise<HandlerResult[]>;
 }
 
 // --- CostTracker ---
@@ -61,16 +62,16 @@ export class WorkingMemory {
 export class AgentContext {
   readonly llm: LLMProvider;
   readonly tools: Map<string, Tool>;
-  readonly handlerRegistry: HandlerRegistryLike;
+  readonly handlerEngine: HandlerEngineHandle;
 
   constructor(params: {
     llm: LLMProvider;
     tools: Map<string, Tool>;
-    handlerRegistry?: HandlerRegistryLike;
+    handlerEngine?: HandlerEngineHandle;
   }) {
     this.llm = params.llm;
     this.tools = params.tools;
-    this.handlerRegistry = params.handlerRegistry ?? { getHandlers: () => [] };
+    this.handlerEngine = params.handlerEngine ?? { getHandlers: () => [], emit: async () => [] };
   }
 }
 

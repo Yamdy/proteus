@@ -1,12 +1,8 @@
 // @proteus/core — public API surface
 
-// --- Event Bus ---
-export { EventBus } from "./event-bus.js";
-export type { HandlerResult, HandlerFn } from "./event-bus.js";
-
-// --- Handler Registry ---
-export { HandlerRegistry, registerBuiltins, BUILTIN_HANDLERS } from "./handler-registry.js";
-export type { HandlerSnapshot, RegistrySnapshot } from "./handler-registry.js";
+// --- Handler Engine ---
+export { HandlerEngine, registerBuiltins, BUILTIN_HANDLERS } from "./handler-engine.js";
+export type { HandlerResult, HandlerFn, HandlerSnapshot, RegistrySnapshot } from "./handler-engine.js";
 
 // --- Three-Region Context ---
 export {
@@ -18,7 +14,7 @@ export {
   CostTracker,
   WorkingMemory,
 } from "./context.js";
-export type { HandlerRegistryLike } from "./context.js";
+export type { HandlerEngineHandle } from "./context.js";
 
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
@@ -58,7 +54,7 @@ export interface Tool {
   definition: ToolDefinition;
   execute(
     params: Record<string, unknown>,
-    context: TurnContext,
+    context: import("./context.js").TurnContext,
   ): Promise<ToolResult>;
 }
 
@@ -110,7 +106,7 @@ export interface HandlerDefinition {
   priority?: number;
   trust: 0 | 1 | 2 | 3;
   builtin?: boolean;
-  handle: (ctx: unknown) => Promise<import("./event-bus.js").HandlerResult>;
+  handle: (ctx: unknown) => Promise<import("./handler-engine.js").HandlerResult>;
 }
 
 // --- Session & Memory ---
