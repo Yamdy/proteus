@@ -1,19 +1,76 @@
+<!-- TODO(TEMP): Temporary studio placeholder for dev-server visualization. Remove when packages/studio/ is complete. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proteus — Harness Visualizer</title>
+<title>Proteus Dev Server</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e1e4e8; padding: 24px; }
-  h1 { font-size: 20px; margin-bottom: 20px; color: #c9d1d9; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
-  .card h2 { font-size: 14px; color: #8b949e; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e1e4e8; padding: 16px; height: 100vh; display: flex; flex-direction: column; }
+  h1 { font-size: 18px; margin-bottom: 12px; color: #c9d1d9; flex-shrink: 0; }
+
+  /* Layout */
+  .main-grid { display: grid; grid-template-columns: 280px 1fr 1fr; gap: 12px; flex: 1; min-height: 0; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; overflow: hidden; }
+  .card h2 { font-size: 12px; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+
+  /* LLM Config Panel */
+  .config-section { margin-bottom: 12px; }
+  .config-section label { display: block; font-size: 11px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; }
+  .config-section input, .config-section select {
+    width: 100%; padding: 6px 8px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px;
+    color: #e1e4e8; font-size: 13px; font-family: inherit;
+  }
+  .config-section input:focus, .config-section select:focus { outline: none; border-color: #58a6ff; }
+  .config-section .hint { font-size: 10px; color: #6e7681; margin-top: 2px; }
+  .config-status { font-size: 11px; padding: 4px 8px; border-radius: 4px; margin-top: 8px; display: none; }
+  .config-status.ok { display: block; background: #0d4429; color: #3fb950; }
+  .config-status.err { display: block; background: #3d0d0d; color: #f85149; }
+
+  /* Buttons */
+  .btn {
+    padding: 6px 12px; border: 1px solid #30363d; border-radius: 4px; background: #21262d; color: #c9d1d9;
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn:hover { background: #30363d; border-color: #8b949e; }
+  .btn-primary { background: #238636; border-color: #238636; color: #fff; }
+  .btn-primary:hover { background: #2ea043; }
+  .btn-danger { background: #da3633; border-color: #da3633; color: #fff; }
+  .btn-danger:hover { background: #f85149; }
+  .btn-row { display: flex; gap: 6px; margin-top: 8px; }
+
+  /* Session Panel */
+  .session-list { flex: 1; overflow-y: auto; min-height: 0; }
+  .session-item {
+    padding: 6px 8px; border-bottom: 1px solid #21262d; font-size: 12px; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; transition: background 0.1s;
+  }
+  .session-item:hover { background: #1c2128; }
+  .session-item.active { background: #1f6feb22; border-left: 2px solid #58a6ff; }
+  .session-id { color: #58a6ff; font-family: monospace; font-size: 11px; }
+  .session-del { color: #f85149; cursor: pointer; opacity: 0.6; }
+  .session-del:hover { opacity: 1; }
+
+  /* Chat Panel */
+  .chat-messages { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 0; }
+  .chat-msg { padding: 8px 10px; margin-bottom: 6px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+  .chat-msg.user { background: #1f6feb22; border-left: 3px solid #58a6ff; }
+  .chat-msg.assistant { background: #23863622; border-left: 3px solid #3fb950; }
+  .chat-msg.thinking { background: #d2992222; border-left: 3px solid #d29922; opacity: 0.8; }
+  .chat-msg .role { font-size: 10px; text-transform: uppercase; color: #8b949e; margin-bottom: 2px; }
+  .chat-msg .content { white-space: pre-wrap; word-break: break-word; }
+  .chat-input-row { display: flex; gap: 6px; flex-shrink: 0; margin-top: 8px; }
+  .chat-input {
+    flex: 1; padding: 8px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    color: #e1e4e8; font-size: 13px; font-family: inherit; resize: none; min-height: 36px; max-height: 120px;
+  }
+  .chat-input:focus { outline: none; border-color: #58a6ff; }
+  .chat-input::placeholder { color: #484f58; }
+  .chat-status { font-size: 11px; color: #6e7681; margin-top: 4px; flex-shrink: 0; }
 
   /* Lifecycle Badge */
-  #lifecycle-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+  #lifecycle-badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
   .badge-pending { background: #30363d; color: #8b949e; }
   .badge-running { background: #0d4429; color: #3fb950; }
   .badge-paused { background: #3d2e00; color: #d29922; }
@@ -22,63 +79,346 @@
   .badge-cancelled { background: #30363d; color: #8b949e; }
 
   /* Phase Progress */
-  .phases { display: flex; gap: 4px; margin-bottom: 8px; }
-  .phase-step { flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 4px; background: #21262d; color: #8b949e; transition: all 0.2s; }
+  .phases { display: flex; gap: 3px; margin-bottom: 6px; }
+  .phase-step {
+    flex: 1; height: 24px; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; border-radius: 3px; background: #21262d; color: #8b949e; transition: all 0.2s;
+  }
   .phase-step.active { background: #1f6feb; color: #fff; font-weight: 600; }
   .phase-step.done { background: #238636; color: #fff; }
 
   /* Event Stream */
-  #event-stream { max-height: 400px; overflow-y: auto; font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 12px; }
-  .event-entry { padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  #event-stream { flex: 1; overflow-y: auto; font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 11px; min-height: 0; }
+  .event-entry { padding: 4px 6px; border-bottom: 1px solid #21262d; }
   .event-entry:hover { background: #1c2128; }
   .event-type { color: #58a6ff; font-weight: 600; }
-  .event-ts { color: #6e7681; margin-right: 8px; }
-  .event-payload { color: #8b949e; margin-top: 2px; word-break: break-all; }
+  .event-ts { color: #6e7681; margin-right: 6px; }
+  .event-payload { color: #8b949e; margin-top: 1px; word-break: break-all; }
 
   /* Handler Chain */
-  #handler-chain { max-height: 400px; overflow-y: auto; }
-  .handler-entry { padding: 6px 8px; border-bottom: 1px solid #21262d; font-size: 12px; display: flex; gap: 8px; align-items: center; }
-  .handler-name { color: #d2a8ff; font-weight: 600; min-width: 120px; }
-  .handler-priority { color: #6e7681; font-size: 11px; min-width: 40px; }
-  .handler-result { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 11px; }
+  #handler-chain { flex: 1; overflow-y: auto; min-height: 0; }
+  .handler-entry { padding: 4px 6px; border-bottom: 1px solid #21262d; font-size: 11px; display: flex; gap: 6px; align-items: center; }
+  .handler-name { color: #d2a8ff; font-weight: 600; min-width: 100px; }
+  .handler-priority { color: #6e7681; font-size: 10px; min-width: 30px; }
+  .handler-result { font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 10px; }
   .result-ok { color: #3fb950; }
   .result-block { color: #f85149; }
   .result-suspend { color: #d29922; }
   .result-abort { color: #f85149; }
   .result-error { color: #f85149; }
-  .phase-label { color: #8b949e; font-size: 11px; margin-top: 8px; margin-bottom: 4px; padding: 4px 8px; background: #21262d; border-radius: 4px; }
+  .phase-label { color: #8b949e; font-size: 10px; margin-top: 4px; margin-bottom: 2px; padding: 2px 6px; background: #21262d; border-radius: 3px; }
+
+  /* Collapsible */
+  .collapsible-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px; }
+  .collapsible-header::before { content: '▸'; font-size: 10px; transition: transform 0.15s; }
+  .collapsible-header.open::before { transform: rotate(90deg); }
 </style>
 </head>
 <body>
-<h1>Proteus Harness Visualizer</h1>
+<h1>Proteus Dev Server</h1>
 
-<div id="lifecycle-badge" class="badge-pending">pending</div>
+<div class="main-grid">
+  <!-- Left: Config + Sessions -->
+  <div style="display: flex; flex-direction: column; gap: 12px; overflow: hidden;">
+    <!-- LLM Config -->
+    <div class="card" style="flex-shrink: 0;">
+      <h2>LLM Configuration</h2>
+      <div class="config-section">
+        <label>Base URL</label>
+        <input id="cfg-baseurl" type="text" placeholder="https://api.openai.com/v1" />
+        <div class="hint">OpenAI-compatible endpoint</div>
+      </div>
+      <div class="config-section">
+        <label>Model</label>
+        <input id="cfg-model" type="text" placeholder="gpt-4o" />
+      </div>
+      <div class="config-section">
+        <label>API Key</label>
+        <input id="cfg-apikey" type="password" placeholder="sk-..." />
+        <div class="hint">Stored in memory only, never persisted</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="cfg-save">Apply</button>
+        <button class="btn" id="cfg-refresh">Refresh</button>
+      </div>
+      <div id="cfg-status" class="config-status"></div>
+    </div>
 
-<div class="grid">
-  <div class="card" style="grid-column: 1 / -1;">
-    <h2>Phase Progress</h2>
-    <div class="phases" id="phase-bar">
-      <div class="phase-step" data-phase="context_assembly">context</div>
-      <div class="phase-step" data-phase="llm_inference">llm</div>
-      <div class="phase-step" data-phase="action_resolution">action</div>
-      <div class="phase-step" data-phase="tool_execution">tool</div>
-      <div class="phase-step" data-phase="result_observation">result</div>
+    <!-- Sessions -->
+    <div class="card" style="flex: 1; min-height: 0;">
+      <h2>Sessions</h2>
+      <div class="session-list" id="session-list">
+        <span style="color:#6e7681; font-size: 12px;">Loading...</span>
+      </div>
+      <div class="btn-row" style="margin-top: 8px;">
+        <button class="btn btn-primary" id="session-create" style="flex:1;">New Session</button>
+      </div>
     </div>
   </div>
 
+  <!-- Center: Chat -->
   <div class="card">
-    <h2>Handler Chain</h2>
-    <div id="handler-chain"><span style="color:#6e7681">Waiting for events...</span></div>
+    <h2>Chat</h2>
+    <div class="chat-messages" id="chat-messages">
+      <div style="color:#6e7681; font-size: 12px; text-align: center; margin-top: 40px;">
+        Select or create a session, then send a message
+      </div>
+    </div>
+    <div class="chat-status" id="chat-status"></div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chat-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+      <button class="btn btn-primary" id="chat-send">Send</button>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Event Stream</h2>
-    <div id="event-stream"><span style="color:#6e7681">Connecting...</span></div>
+  <!-- Right: Harness Visualizer -->
+  <div style="display: flex; flex-direction: column; gap: 12px; overflow: hidden;">
+    <div class="card" style="flex-shrink: 0;">
+      <h2>Harness Lifecycle</h2>
+      <div id="lifecycle-badge" class="badge-pending">pending</div>
+      <div class="phases" id="phase-bar">
+        <div class="phase-step" data-phase="context_assembly">ctx</div>
+        <div class="phase-step" data-phase="llm_inference">llm</div>
+        <div class="phase-step" data-phase="action_resolution">act</div>
+        <div class="phase-step" data-phase="tool_execution">tool</div>
+        <div class="phase-step" data-phase="result_observation">res</div>
+      </div>
+    </div>
+
+    <div class="card" style="flex: 1; min-height: 0;">
+      <h2 class="collapsible-header open" id="handler-header">Handler Chain</h2>
+      <div id="handler-chain"><span style="color:#6e7681; font-size: 12px;">Waiting for events...</span></div>
+    </div>
+
+    <div class="card" style="flex: 1; min-height: 0;">
+      <h2 class="collapsible-header open" id="events-header">Event Stream</h2>
+      <div id="event-stream"><span style="color:#6e7681; font-size: 12px;">Connecting...</span></div>
+    </div>
   </div>
 </div>
 
 <script>
 (function () {
+  // ─── State ───
+  var currentSessionId = null;
+  var chatHistories = {}; // sessionId -> [{role, content}]
+
+  // ─── Elements ───
+  var cfgBaseUrl = document.getElementById("cfg-baseurl");
+  var cfgModel = document.getElementById("cfg-model");
+  var cfgApiKey = document.getElementById("cfg-apikey");
+  var cfgStatus = document.getElementById("cfg-status");
+  var sessionList = document.getElementById("session-list");
+  var chatMessages = document.getElementById("chat-messages");
+  var chatInput = document.getElementById("chat-input");
+  var chatStatus = document.getElementById("chat-status");
+
+  // ─── API Helpers ───
+  async function api(method, path, body) {
+    var opts = { method: method, headers: { "Content-Type": "application/json" } };
+    if (body) opts.body = JSON.stringify(body);
+    var res = await fetch(path, opts);
+    return res.json();
+  }
+
+  // ─── LLM Config ───
+  async function loadConfig() {
+    var data = await api("GET", "/config");
+    if (data.baseUrl) cfgBaseUrl.value = data.baseUrl;
+    if (data.model) cfgModel.value = data.model;
+  }
+
+  async function saveConfig() {
+    cfgStatus.className = "config-status";
+    cfgStatus.style.display = "none";
+    var data = await api("POST", "/config", {
+      baseUrl: cfgBaseUrl.value,
+      model: cfgModel.value,
+      apiKey: cfgApiKey.value,
+    });
+    if (data.error) {
+      cfgStatus.textContent = data.error;
+      cfgStatus.className = "config-status err";
+    } else {
+      cfgStatus.textContent = "Config applied: " + (data.baseUrl || "(stub)") + " / " + data.model;
+      cfgStatus.className = "config-status ok";
+      setTimeout(function () { cfgStatus.style.display = "none"; }, 3000);
+    }
+  }
+
+  document.getElementById("cfg-save").onclick = saveConfig;
+  document.getElementById("cfg-refresh").onclick = loadConfig;
+
+  // ─── Sessions ───
+  async function loadSessions() {
+    var data = await api("GET", "/sessions");
+    var sessions = data.sessions || [];
+    if (sessions.length === 0) {
+      sessionList.innerHTML = '<span style="color:#6e7681; font-size: 12px;">No sessions. Create one to start chatting.</span>';
+      return;
+    }
+    var html = "";
+    sessions.forEach(function (s) {
+      var sid = typeof s === "string" ? s : s.sessionId || s.id;
+      var active = sid === currentSessionId ? " active" : "";
+      html += '<div class="session-item' + active + '" data-sid="' + sid + '">';
+      html += '<span class="session-id">' + sid + '</span>';
+      html += '<span class="session-del" data-del="' + sid + '">&times;</span>';
+      html += '</div>';
+    });
+    sessionList.innerHTML = html;
+
+    // Click handlers
+    sessionList.querySelectorAll(".session-item").forEach(function (el) {
+      el.onclick = function (e) {
+        if (e.target.classList.contains("session-del")) return;
+        selectSession(el.dataset.sid);
+      };
+    });
+    sessionList.querySelectorAll(".session-del").forEach(function (el) {
+      el.onclick = function (e) {
+        e.stopPropagation();
+        deleteSession(el.dataset.del);
+      };
+    });
+  }
+
+  async function selectSession(sid) {
+    currentSessionId = sid;
+    if (!chatHistories[sid]) {
+      // Load history from server
+      try {
+        var data = await api("GET", "/sessions/" + sid + "/messages");
+        if (data.messages) {
+          chatHistories[sid] = data.messages
+            .filter(function(m) { return m.role === "user" || m.role === "assistant"; })
+            .map(function(m) {
+              var msg = { role: m.role, content: m.content };
+              if (m.thinking) msg.thinking = m.thinking;
+              return msg;
+            });
+        } else {
+          chatHistories[sid] = [];
+        }
+      } catch {
+        chatHistories[sid] = [];
+      }
+    }
+    renderChat();
+    loadSessions(); // refresh active highlight
+  }
+
+  async function createSession() {
+    var sid = "session_" + Date.now().toString(36);
+    var data = await api("POST", "/sessions", { sessionId: sid });
+    if (data.error) {
+      chatStatus.textContent = "Error: " + data.error;
+      return;
+    }
+    chatHistories[sid] = [];
+    selectSession(sid);
+    loadSessions();
+  }
+
+  async function deleteSession(sid) {
+    await api("DELETE", "/sessions/" + sid);
+    delete chatHistories[sid];
+    if (currentSessionId === sid) {
+      currentSessionId = null;
+      chatMessages.innerHTML = '<div style="color:#6e7681; font-size: 12px; text-align: center; margin-top: 40px;">Session deleted. Create a new one.</div>';
+    }
+    loadSessions();
+  }
+
+  document.getElementById("session-create").onclick = createSession;
+
+  // ─── Chat ───
+  function renderChat() {
+    var msgs = chatHistories[currentSessionId] || [];
+    if (msgs.length === 0) {
+      chatMessages.innerHTML = '<div style="color:#6e7681; font-size: 12px; text-align: center; margin-top: 40px;">Send a message to start the conversation</div>';
+      return;
+    }
+    var html = "";
+    msgs.forEach(function (m) {
+      if (m.role === "thinking") {
+        html += '<div class="chat-msg thinking">';
+        html += '<div class="role">thinking</div>';
+        html += '<div class="content">' + escapeHtml(m.content) + '</div>';
+        html += '</div>';
+      } else {
+        if (m.thinking) {
+          html += '<div class="chat-msg thinking">';
+          html += '<div class="role">thinking</div>';
+          html += '<div class="content">' + escapeHtml(m.thinking) + '</div>';
+          html += '</div>';
+        }
+        html += '<div class="chat-msg ' + m.role + '">';
+        html += '<div class="role">' + m.role + '</div>';
+        html += '<div class="content">' + escapeHtml(m.content) + '</div>';
+        html += '</div>';
+      }
+    });
+    chatMessages.innerHTML = html;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  async function sendMessage() {
+    var msg = chatInput.value.trim();
+    if (!msg) return;
+
+    // Auto-create session if none
+    if (!currentSessionId) {
+      await createSession();
+    }
+
+    // Add user message
+    chatHistories[currentSessionId].push({ role: "user", content: msg });
+    renderChat();
+    chatInput.value = "";
+    chatInput.style.height = "auto";
+    chatStatus.textContent = "Sending...";
+
+    try {
+      var data = await api("POST", "/chat", {
+        message: msg,
+        sessionId: currentSessionId,
+      });
+
+      if (data.error) {
+        chatHistories[currentSessionId].push({ role: "assistant", content: "[Error: " + data.error + "]" });
+        renderChat();
+      }
+      // Don't push response — streaming SSE already added it via token/thinking events
+      chatStatus.textContent = data.turnId ? "Turn " + data.turnId + " — " + (data.status || "ok") : "";
+    } catch (err) {
+      chatHistories[currentSessionId].push({ role: "assistant", content: "[Network error: " + err.message + "]" });
+      chatStatus.textContent = "Error";
+      renderChat();
+    }
+  }
+
+  document.getElementById("chat-send").onclick = sendMessage;
+
+  // Auto-resize textarea + Enter to send
+  chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  chatInput.addEventListener("input", function () {
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 120) + "px";
+  });
+
+  // ─── Harness Visualizer ───
   var PHASES = ["context_assembly", "llm_inference", "action_resolution", "tool_execution", "result_observation"];
   var phaseSteps = document.querySelectorAll(".phase-step");
   var eventStream = document.getElementById("event-stream");
@@ -116,8 +456,8 @@
   function formatResult(result) {
     if (!result) return "";
     if ("ok" in result) {
-      if (result.ok) return '<span class="result-ok">ok: true</span>';
-      return '<span class="result-block">ok: false (' + (result.reason || "") + ")</span>";
+      if (result.ok) return '<span class="result-ok">ok</span>';
+      return '<span class="result-block">blocked (' + (result.reason || "") + ")</span>";
     }
     if ("suspend" in result && result.suspend) return '<span class="result-suspend">suspend</span>';
     if ("abort" in result && result.abort) return '<span class="result-abort">abort</span>';
@@ -127,7 +467,7 @@
 
   function renderHandlerChain() {
     if (Object.keys(phaseHandlers).length === 0) {
-      handlerChain.innerHTML = '<span style="color:#6e7681">Waiting for events...</span>';
+      handlerChain.innerHTML = '<span style="color:#6e7681; font-size: 12px;">Waiting for events...</span>';
       return;
     }
     var html = "";
@@ -156,18 +496,32 @@
     var ts = new Date(timestamp).toLocaleTimeString();
     entry.innerHTML =
       '<div><span class="event-ts">' + ts + '</span><span class="event-type">' + type + "</span></div>" +
-      '<div class="event-payload">' + JSON.stringify(payload).slice(0, 200) + "</div>";
+      '<div class="event-payload">' + JSON.stringify(payload).slice(0, 150) + "</div>";
     eventStream.appendChild(entry);
     eventStream.scrollTop = eventStream.scrollHeight;
   }
 
-  // Connect to SSE
+  // Collapsible sections
+  document.getElementById("handler-header").onclick = function () {
+    this.classList.toggle("open");
+    handlerChain.style.display = this.classList.contains("open") ? "" : "none";
+  };
+  document.getElementById("events-header").onclick = function () {
+    this.classList.toggle("open");
+    eventStream.style.display = this.classList.contains("open") ? "" : "none";
+  };
+
+  // ─── SSE ───
   var es = new EventSource("/events");
+  var streamingMessage = null;
+  var streamingThinking = null;
 
   es.addEventListener("turn:start", function (e) {
     var data = JSON.parse(e.data);
     resetPhaseBar();
     updateLifecycle("running");
+    streamingMessage = null;
+    streamingThinking = null;
     addEvent("turn:start", data.payload, data.timestamp);
   });
 
@@ -178,7 +532,39 @@
     else if (status === "errored") updateLifecycle("errored");
     else if (status === "aborted") updateLifecycle("cancelled");
     else updateLifecycle("completed");
+    streamingMessage = null;
+    streamingThinking = null;
     addEvent("turn:end", data.payload, data.timestamp);
+  });
+
+  es.addEventListener("thinking", function (e) {
+    var data = JSON.parse(e.data);
+    var token = data.token || "";
+    if (!currentSessionId) return;
+
+    // Create or update streaming thinking message
+    if (!streamingThinking) {
+      streamingThinking = { role: "thinking", content: "" };
+      chatHistories[currentSessionId].push(streamingThinking);
+    }
+    streamingThinking.content += token;
+    renderChat();
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  });
+
+  es.addEventListener("token", function (e) {
+    var data = JSON.parse(e.data);
+    var token = data.token || "";
+    if (!currentSessionId) return;
+
+    // Create or update streaming message
+    if (!streamingMessage) {
+      streamingMessage = { role: "assistant", content: "" };
+      chatHistories[currentSessionId].push(streamingMessage);
+    }
+    streamingMessage.content += token;
+    renderChat();
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   });
 
   es.addEventListener("phase:before", function (e) {
@@ -225,6 +611,10 @@
   es.onerror = function () {
     addEvent("error", { message: "SSE connection lost, reconnecting..." }, Date.now());
   };
+
+  // ─── Init ───
+  loadConfig();
+  loadSessions();
 })();
 </script>
 </body>

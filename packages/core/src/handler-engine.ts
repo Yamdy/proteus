@@ -9,6 +9,19 @@ export type HandlerResult =
 
 export type HandlerFn = (ctx: unknown) => Promise<HandlerResult>;
 
+function matchesHandler(rh: RegisteredHandler, event: string, payload?: unknown): boolean {
+  const h = rh.handler;
+  const eventMatch = !h.events || h.events.includes(event);
+  // When payload is absent (e.g. getHandlers query), treat phaseMatch as true
+  // so handlers with phases are still discoverable.
+  const phaseName = (payload as any)?.phaseName;
+  const phaseMatch = !h.phases || !phaseName || h.phases.includes(phaseName);
+  if (h.events && h.phases) return eventMatch && phaseMatch;
+  if (h.events) return eventMatch;
+  if (h.phases) return eventMatch && phaseMatch;
+  return true;
+}
+
 function shouldShortCircuit(result: HandlerResult): boolean {
   if ("ok" in result) return !result.ok;
   if ("abort" in result) return result.abort;
@@ -118,9 +131,9 @@ export class HandlerEngine {
     this.handlers[index] = { handler, kind: "interceptor", insertionOrder: rh.insertionOrder };
   }
 
-  getHandlers(event: string): HandlerDefinition[] {
+  getHandlers(event: string, payload?: unknown): HandlerDefinition[] {
     return this.handlers
-      .filter((rh) => !rh.handler.events || rh.handler.events.includes(event))
+      .filter((rh) => matchesHandler(rh, event, payload))
       .sort((a, b) => {
         const p = (a.handler.priority ?? 100) - (b.handler.priority ?? 100);
         return p !== 0 ? p : a.insertionOrder - b.insertionOrder;
@@ -177,7 +190,7 @@ export class HandlerEngine {
     this.emitDepth++;
     try {
       const matching = this.handlers
-        .filter((rh) => !rh.handler.events || rh.handler.events.includes(event))
+        .filter((rh) => matchesHandler(rh, event, payload))
         .sort((a, b) => {
           const p = (a.handler.priority ?? 100) - (b.handler.priority ?? 100);
           return p !== 0 ? p : a.insertionOrder - b.insertionOrder;

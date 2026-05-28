@@ -14,7 +14,9 @@ function stubLLM(overrides?: Partial<LLMProvider>): LLMProvider {
       usage: { promptTokens: 10, completionTokens: 5 },
       finishReason: "stop" as const,
     })),
-    chatStream: overrides?.chatStream ?? (async function* () {}),
+    chatStream: overrides?.chatStream ?? (async function* () {
+      yield { content: "Agent response", usage: { promptTokens: 10, completionTokens: 5 }, finishReason: "stop" as const };
+    }),
     countTokens: overrides?.countTokens ?? ((text: string) => Math.ceil(text.length / 4)),
   };
 }

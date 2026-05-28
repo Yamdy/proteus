@@ -106,7 +106,7 @@ Zod is the single source of truth for all runtime schemas. Zod schemas derive:
 - **TypeScript types** — via `z.infer<typeof Schema>`
 - **Runtime validation** — at trust boundaries (handler I/O, phase results, Config, SDK API inputs, self_modify generated code)
 
-Tool parameter definitions use Zod schemas. Vercel AI SDK integration is zero-friction (it natively accepts Zod schemas).
+Tool parameter definitions use Zod schemas. The protocol layer converts Zod-derived JSON Schema to the wire format required by each API provider.
 
 ### Three-Layer Architecture
 
@@ -235,9 +235,14 @@ Key design: **snapshots + event log coexist.** Snapshots enable fast random-acce
 
 ### LLM Provider
 
-Core defines a `LLMProvider` interface (Level 3 invariant). Vercel AI SDK provides the default implementation covering mainstream providers (OpenAI, Anthropic, Groq, Ollama, etc.). Users can swap implementations via `sdk.registerProvider()`. LLM provider registration is itself a plugin extension point.
+Core defines a `LLMProvider` interface (Level 3 invariant). The default implementation uses a two-layer architecture inspired by OpenCode:
 
-Vercel AI SDK is an internal implementation detail of core's default `LLMProvider`. Its types (`LanguageModel`, `ToolCallPart`, etc.) must never appear in core's public exports. `ai` is a runtime dependency of core, but consumers of `@proteus/core` only see the `LLMProvider` interface contract — never the AI SDK surface.
+- **Provider** (`llm/provider.ts`) — auth + config factory. `createProvider(config)` returns an `LLMProvider`. Handles API key, base URL, model selection, and provider-specific options (thinking, reasoning effort).
+- **Protocol** (`llm/protocols/openai-chat.ts`) — API format and streaming. Handles message/tool mapping to wire format, SSE stream parsing, thinking/reasoning extraction, tool call accumulation.
+
+The `LLMProvider` interface is the only contract consumers see. Protocol internals (wire types, fetch logic, SSE parsing) never appear in public exports. Users can swap implementations via `sdk.registerProvider()`. LLM provider registration is itself a plugin extension point.
+
+New API formats (Anthropic Messages, OpenAI Responses, etc.) are added as new protocol files under `llm/protocols/`. Providers compose protocols — e.g., a future Anthropic provider would delegate to `protocols/anthropic-messages.ts`.
 
 ### Tool
 

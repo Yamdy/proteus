@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc && cp src/dev-server-ui.html dist/",
     "dev": "tsx src/dev-server-entry.ts",
-    "dev:watch": "tsc --watch",
+    "dev:watch": "tsx watch src/dev-server-entry.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

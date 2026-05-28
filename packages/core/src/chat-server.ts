@@ -1,9 +1,12 @@
+// TODO(TEMP): This file is a temporary studio placeholder for dev-server visualization.
+// Remove when packages/studio/ is complete. Do NOT add production features here.
+
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { AgentContext, SessionContext } from "./context.js";
+import { AgentContext } from "./context.js";
 import { Harness } from "./harness.js";
 import { SessionManager } from "./session-manager.js";
 import type { HandlerEngine } from "./handler-engine.js";
@@ -23,6 +26,9 @@ export interface ChatServerOptions {
   llm: LLMProvider;
   store: CheckpointStore;
   engine: HandlerEngine;
+  llmFactory?: (baseUrl: string, model: string, apiKey: string) => LLMProvider;
+  llmConfig?: { baseUrl?: string; model?: string; apiKey?: string };
+  dataDir?: string;
 }
 
 const DEFAULT_SESSION_CONFIG: SessionConfig = {
@@ -34,19 +40,96 @@ const DEFAULT_SESSION_CONFIG: SessionConfig = {
 
 export class ChatServer {
   private readonly port: number;
-  private readonly llm: LLMProvider;
+  private llm: LLMProvider;
   private readonly engine: HandlerEngine;
   private readonly sessionManager: SessionManager;
   private readonly harness: Harness;
   private readonly clients = new Set<http.ServerResponse>();
+  private readonly llmFactory?: (baseUrl: string, model: string, apiKey: string) => LLMProvider;
+  private llmConfig = { baseUrl: "", model: "gpt-4o", apiKey: "" };
   private server: http.Server | undefined;
+  private readonly dataFile: string | undefined;
+  private chatData: { sessions: Record<string, { messages: Array<{ role: string; content: string; thinking?: string }> }> } = { sessions: {} };
 
   constructor(opts: ChatServerOptions) {
     this.port = opts.port;
     this.llm = opts.llm;
     this.engine = opts.engine;
+    this.llmFactory = opts.llmFactory;
+    if (opts.llmConfig) {
+      this.llmConfig = {
+        baseUrl: opts.llmConfig.baseUrl ?? "",
+        model: opts.llmConfig.model ?? "gpt-4o",
+        apiKey: opts.llmConfig.apiKey ?? "",
+      };
+    }
+    if (opts.dataDir) {
+      this.dataFile = path.join(opts.dataDir, "chat-data.json");
+      this.loadData();
+    }
     this.sessionManager = new SessionManager({ store: opts.store });
     this.harness = new Harness({ store: opts.store });
+
+    // Restore sessions from persisted data
+    this.restoreSessions();
+
+    // Hook engine events to SSE broadcast
+    this.setupEventForwarding();
+  }
+
+  private loadData(): void {
+    if (!this.dataFile) return;
+    try {
+      const raw = fs.readFileSync(this.dataFile, "utf-8");
+      this.chatData = JSON.parse(raw);
+    } catch {
+      this.chatData = { sessions: {} };
+    }
+  }
+
+  private saveData(): void {
+    if (!this.dataFile) return;
+    try {
+      fs.writeFileSync(this.dataFile, JSON.stringify(this.chatData, null, 2));
+    } catch (err) {
+      console.error("Failed to save chat data:", err);
+    }
+  }
+
+  private restoreSessions(): void {
+    for (const [sessionId, data] of Object.entries(this.chatData.sessions)) {
+      if (!this.sessionManager.get(sessionId)) {
+        this.sessionManager.create(sessionId, { ...DEFAULT_SESSION_CONFIG, sessionId });
+        const session = this.sessionManager.get(sessionId);
+        if (session) {
+          for (const msg of data.messages) {
+            session.workingMemory.push({ role: msg.role as any, content: msg.content, thinking: msg.thinking } as any);
+          }
+        }
+      }
+    }
+  }
+
+  private setupEventForwarding(): void {
+    const events = [
+      "turn:start", "turn:end",
+      "phase:before", "phase:after",
+      "chain:start", "chain:end",
+    ];
+    for (const event of events) {
+      this.engine.observe(event, async (payload: unknown) => {
+        this.broadcast({ type: event, data: { payload, timestamp: Date.now() } });
+        return { ok: true };
+      }, 0, `sse-${event}`);
+    }
+  }
+
+  broadcastToken(token: string): void {
+    this.broadcast({ type: "token", data: { token, timestamp: Date.now() } });
+  }
+
+  broadcastThinking(token: string): void {
+    this.broadcast({ type: "thinking", data: { token, timestamp: Date.now() } });
   }
 
   async start(): Promise<AddressInfo> {
@@ -107,6 +190,11 @@ export class ChatServer {
         await this.handleCreateSession(req, res);
         return;
       }
+      if (url.pathname.startsWith("/sessions/") && url.pathname.endsWith("/messages") && method === "GET") {
+        const sessionId = url.pathname.slice("/sessions/".length, -"/messages".length);
+        this.handleGetMessages(sessionId, res);
+        return;
+      }
       if (url.pathname.startsWith("/sessions/") && method === "DELETE") {
         const sessionId = url.pathname.slice("/sessions/".length);
         this.handleDestroySession(sessionId, res);
@@ -116,6 +204,16 @@ export class ChatServer {
       // Chat
       if (url.pathname === "/chat" && method === "POST") {
         await this.handleChat(req, res);
+        return;
+      }
+
+      // Config
+      if (url.pathname === "/config" && method === "GET") {
+        this.handleGetConfig(res);
+        return;
+      }
+      if (url.pathname === "/config" && method === "POST") {
+        await this.handleUpdateConfig(req, res);
         return;
       }
 
@@ -186,6 +284,18 @@ export class ChatServer {
     res.end(JSON.stringify({ sessionId, destroyed: true }));
   }
 
+  private handleGetMessages(sessionId: string, res: http.ServerResponse): void {
+    const session = this.sessionManager.get(sessionId);
+    if (!session) {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: `Session "${sessionId}" not found` }));
+      return;
+    }
+    const messages = session.workingMemory.getMessages();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ messages }));
+  }
+
   private async handleChat(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const body = await this.readBody(req);
     const { message, sessionId: requestedId } = body as { message?: string; sessionId?: string };
@@ -221,12 +331,24 @@ export class ChatServer {
     });
 
     // Run through harness
-    const result = await this.harness.runTurn(session, agent);
+    let result;
+    try {
+      result = await this.harness.runTurn(session, agent);
+    } catch (err) {
+      console.error("Harness error:", err);
+      throw err;
+    }
 
     // Extract response from working memory (last assistant message)
     const messages = session.workingMemory.getMessages();
     const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
     const responseText = lastAssistant?.content ?? "";
+
+    // Persist messages
+    this.chatData.sessions[sessionId] = {
+      messages: messages.map((m) => ({ role: m.role, content: m.content, thinking: (m as any).thinking })),
+    };
+    this.saveData();
 
     // Broadcast SSE event
     this.broadcast({
@@ -236,6 +358,37 @@ export class ChatServer {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ sessionId, turnId: result.turnId, status: result.status, response: responseText }));
+  }
+
+  private handleGetConfig(res: http.ServerResponse): void {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      baseUrl: this.llmConfig.baseUrl,
+      model: this.llmConfig.model,
+      hasApiKey: !!this.llmConfig.apiKey,
+    }));
+  }
+
+  private async handleUpdateConfig(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const body = await this.readBody(req);
+    const { baseUrl, model, apiKey } = body as { baseUrl?: string; model?: string; apiKey?: string };
+
+    if (baseUrl !== undefined) this.llmConfig.baseUrl = baseUrl;
+    if (model) this.llmConfig.model = model;
+    if (apiKey !== undefined) this.llmConfig.apiKey = apiKey;
+
+    if (this.llmFactory && this.llmConfig.apiKey && this.llmConfig.baseUrl) {
+      try {
+        this.llm = this.llmFactory(this.llmConfig.baseUrl, this.llmConfig.model, this.llmConfig.apiKey);
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: `Failed to create LLM: ${err instanceof Error ? err.message : String(err)}` }));
+        return;
+      }
+    }
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, baseUrl: this.llmConfig.baseUrl, model: this.llmConfig.model }));
   }
 
   private readBody(req: http.IncomingMessage): Promise<unknown> {

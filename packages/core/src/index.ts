@@ -33,9 +33,9 @@ export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
 export { DevServer } from "./dev-server.js";
 export type { DevServerOptions, SSEEvent } from "./dev-server.js";
 
-// --- VercelLLMProvider ---
-export { VercelLLMProvider } from "./vercel-llm-provider.js";
-export type { VercelLLMConfig } from "./vercel-llm-provider.js";
+// --- LLM (Provider + Protocol) ---
+export { createProvider, createProtocol } from "./llm/index.js";
+export type { ProviderConfig, OpenAIChatConfig, OpenAIChatProtocol } from "./llm/index.js";
 
 // --- ToolRegistry ---
 export { ToolRegistry } from "./tool-registry.js";
@@ -102,6 +102,7 @@ export interface Tool {
 export interface LLMMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
+  thinking?: string;
   toolCalls?: ToolCall[];
   toolCallId?: string;
   name?: string;
@@ -115,6 +116,7 @@ export interface ToolCall {
 
 export interface LLMResponse {
   content: string;
+  thinking?: string;
   toolCalls?: ToolCall[];
   usage: { promptTokens: number; completionTokens: number };
   finishReason: "stop" | "tool_call" | "length" | "error";

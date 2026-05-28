@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   ContextAssemblyProcessor,
   LLMInferenceProcessor,
@@ -7,11 +7,11 @@ import {
   ResultObservationProcessor,
   registerBuiltInProcessors,
 } from "./processors.js";
-import { AgentContext, SessionContext, TurnContext, HandlerContext, WorkingMemory } from "./context.js";
+import { AgentContext, SessionContext, TurnContext, HandlerContext } from "./context.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { Harness } from "./harness.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
-import type { LLMProvider, LLMMessage, LLMResponse, Tool, ToolDefinition, ToolResult, SessionConfig } from "./index.js";
+import type { LLMProvider, Tool, SessionConfig } from "./index.js";
 
 function testConfig(sessionId = "test-session"): SessionConfig {
   return {
@@ -60,10 +60,10 @@ describe("ContextAssemblyProcessor", () => {
     const processor = new ContextAssemblyProcessor();
     const result = await processor.handle(withPhase(ctx, "context_assembly"));
 
-    expect(result.ok).toBe(true);
+    expect((result as any).ok).toBe(true);
     expect(ctx.turn.messages.length).toBeGreaterThanOrEqual(2);
     expect(ctx.turn.messages[0]!.role).toBe("system");
-    expect(ctx.turn.messages.some((m) => m.content === "Hello")).toBe(true);
+    expect(ctx.turn.messages.some((m: any) => m.content === "Hello")).toBe(true);
   });
 
   it("truncates when over token budget", async () => {
@@ -75,38 +75,32 @@ describe("ContextAssemblyProcessor", () => {
     const processor = new ContextAssemblyProcessor({ maxTokens: 10 });
     const result = await processor.handle(withPhase(ctx, "context_assembly"));
 
-    expect(result.ok).toBe(true);
+    expect((result as any).ok).toBe(true);
     expect(ctx.turn.messages.length).toBeLessThan(100);
   });
 });
 
 describe("LLMInferenceProcessor", () => {
-  it("calls LLM.chat() and stores response in TurnContext", async () => {
+  it("calls LLM.chatStream() and stores response in TurnContext", async () => {
     const llm = stubLLM({
-      chat: async () => ({
-        content: "Hello from LLM",
-        toolCalls: [],
-        usage: { promptTokens: 20, completionTokens: 10 },
-        finishReason: "stop",
-      }),
+      chatStream: async function* () {
+        yield { content: "Hello from LLM", usage: { promptTokens: 20, completionTokens: 10 }, finishReason: "stop" };
+      },
     });
     const { ctx } = makeCtx({ llm });
 
     const processor = new LLMInferenceProcessor();
     const result = await processor.handle(withPhase(ctx, "llm_inference"));
 
-    expect(result.ok).toBe(true);
-    expect(ctx.turn.messages.some((m) => m.content === "Hello from LLM")).toBe(true);
+    expect((result as any).ok).toBe(true);
+    expect(ctx.turn.messages.some((m: any) => m.content === "Hello from LLM")).toBe(true);
   });
 
   it("updates CostTracker with usage", async () => {
     const llm = stubLLM({
-      chat: async () => ({
-        content: "response",
-        toolCalls: [],
-        usage: { promptTokens: 20, completionTokens: 10 },
-        finishReason: "stop",
-      }),
+      chatStream: async function* () {
+        yield { content: "response", usage: { promptTokens: 20, completionTokens: 10 }, finishReason: "stop" };
+      },
     });
     const { ctx, session } = makeCtx({ llm });
 
@@ -120,12 +114,14 @@ describe("LLMInferenceProcessor", () => {
 
   it("stores tool calls from LLM response", async () => {
     const llm = stubLLM({
-      chat: async () => ({
-        content: "",
-        toolCalls: [{ id: "c1", name: "search", arguments: { query: "test" } }],
-        usage: { promptTokens: 10, completionTokens: 5 },
-        finishReason: "tool_call",
-      }),
+      chatStream: async function* () {
+        yield {
+          content: "",
+          toolCalls: [{ id: "c1", name: "search", arguments: { query: "test" } }],
+          usage: { promptTokens: 10, completionTokens: 5 },
+          finishReason: "tool_call" as const,
+        };
+      },
     });
     const { ctx } = makeCtx({ llm });
 
@@ -151,7 +147,7 @@ describe("ActionResolutionProcessor", () => {
     const processor = new ActionResolutionProcessor();
     const result = await processor.handle(withPhase(ctx, "action_resolution"));
 
-    expect(result.ok).toBe(true);
+    expect((result as any).ok).toBe(true);
     expect(ctx.turn.actions).toBeDefined();
     expect(ctx.turn.actions!.length).toBe(1);
   });
@@ -163,7 +159,7 @@ describe("ActionResolutionProcessor", () => {
     const processor = new ActionResolutionProcessor();
     const result = await processor.handle(withPhase(ctx, "action_resolution"));
 
-    expect(result.ok).toBe(false);
+    expect((result as any).ok).toBe(false);
   });
 
   it("passes through when no tool calls", async () => {
@@ -173,7 +169,7 @@ describe("ActionResolutionProcessor", () => {
     const processor = new ActionResolutionProcessor();
     const result = await processor.handle(withPhase(ctx, "action_resolution"));
 
-    expect(result.ok).toBe(true);
+    expect((result as any).ok).toBe(true);
   });
 });
 
@@ -199,7 +195,7 @@ describe("ToolExecutionProcessor", () => {
     const processor = new ToolExecutionProcessor();
     const result = await processor.handle(withPhase(ctx, "tool_execution"));
 
-    expect(result.ok).toBe(true);
+    expect((result as any).ok).toBe(true);
     expect(executed).toBe(true);
     expect(ctx.turn.toolResults.length).toBe(1);
     expect(ctx.turn.toolResults[0]!.output).toBe("Result for test");
@@ -219,7 +215,7 @@ describe("ToolExecutionProcessor", () => {
     const processor = new ToolExecutionProcessor();
     const result = await processor.handle(withPhase(ctx, "tool_execution"));
 
-    expect(result.ok).toBe(true);
+    expect((result as any).ok).toBe(true);
     expect(ctx.turn.toolResults[0]!.error).toBeDefined();
     expect(ctx.turn.toolResults[0]!.error!.message).toBe("Tool crashed");
     expect(ctx.turn.toolResults[0]!.error!.retryable).toBe(false);
@@ -234,7 +230,7 @@ describe("ResultObservationProcessor", () => {
     const processor = new ResultObservationProcessor();
     const result = await processor.handle(withPhase(ctx, "result_observation"));
 
-    expect(result.ok).toBe(true);
+    expect((result as any).ok).toBe(true);
     const msgs = session.workingMemory.getMessages();
     expect(msgs.some((m) => m.content === "LLM says hi")).toBe(true);
   });
@@ -292,12 +288,9 @@ describe("registerBuiltInProcessors", () => {
 describe("Integration: full turn cycle", () => {
   it("completes a full turn with mock LLM and tools", async () => {
     const llm = stubLLM({
-      chat: async () => ({
-        content: "I found something",
-        toolCalls: [],
-        usage: { promptTokens: 15, completionTokens: 8 },
-        finishReason: "stop",
-      }),
+      chatStream: async function* () {
+        yield { content: "I found something", usage: { promptTokens: 15, completionTokens: 8 }, finishReason: "stop" };
+      },
     });
 
     const engine = new HandlerEngine();

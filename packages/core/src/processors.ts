@@ -3,10 +3,6 @@ import type { HandlerResult } from "./handler-engine.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import type { LLMMessage } from "./index.js";
 
-interface PhasePayload extends HandlerContext {
-  phaseName: string;
-}
-
 // --- ContextAssemblyProcessor ---
 
 export interface ContextAssemblyOptions {
@@ -25,8 +21,6 @@ export class ContextAssemblyProcessor {
   }
 
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
-    if ((ctx as PhasePayload).phaseName !== "context_assembly") return { ok: true };
-
     const messages: LLMMessage[] = [];
 
     // System prompt from fragments
@@ -65,30 +59,63 @@ export class ContextAssemblyProcessor {
 
 // --- LLMInferenceProcessor ---
 
+export interface LLMInferenceOptions {
+  onToken?: (token: string) => void;
+  onThinking?: (token: string) => void;
+}
+
 export class LLMInferenceProcessor {
   readonly name = "llm_inference";
+  private readonly onToken?: (token: string) => void;
+  private readonly onThinking?: (token: string) => void;
+
+  constructor(opts?: LLMInferenceOptions) {
+    this.onToken = opts?.onToken;
+    this.onThinking = opts?.onThinking;
+  }
 
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
-    if ((ctx as PhasePayload).phaseName !== "llm_inference") return { ok: true };
-
     const tools = ctx.agent.tools;
     const toolDefs = [...tools.values()].map((t) => t.definition);
-    const response = await ctx.agent.llm.chat(ctx.turn.messages, toolDefs);
+
+    let content = "";
+    let thinking = "";
+    let toolCalls: any[] = [];
+    let usage = { promptTokens: 0, completionTokens: 0 };
+
+    // Use streaming to show thinking process
+    for await (const chunk of ctx.agent.llm.chatStream(ctx.turn.messages, toolDefs)) {
+      if (chunk.thinking) {
+        thinking += chunk.thinking;
+        this.onThinking?.(chunk.thinking);
+      }
+      if (chunk.content) {
+        content += chunk.content;
+        this.onToken?.(chunk.content);
+      }
+      if (chunk.toolCalls && chunk.toolCalls.length > 0) {
+        toolCalls = chunk.toolCalls;
+      }
+      if (chunk.usage) {
+        usage = chunk.usage;
+      }
+    }
 
     // Store assistant response
     ctx.turn.addMessage({
       role: "assistant",
-      content: response.content,
-      toolCalls: response.toolCalls,
+      content,
+      thinking,
+      toolCalls,
     });
 
     // Store tool calls for downstream processors
-    if (response.toolCalls && response.toolCalls.length > 0) {
-      ctx.turn.toolCalls = response.toolCalls;
+    if (toolCalls.length > 0) {
+      ctx.turn.toolCalls = toolCalls;
     }
 
     // Update cost tracker
-    ctx.session.costTracker.addUsage(response.usage);
+    ctx.session.costTracker.addUsage(usage);
 
     return { ok: true };
   }
@@ -100,8 +127,6 @@ export class ActionResolutionProcessor {
   readonly name = "action_resolution";
 
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
-    if ((ctx as PhasePayload).phaseName !== "action_resolution") return { ok: true };
-
     const toolCalls = ctx.turn.toolCalls;
     if (!toolCalls || toolCalls.length === 0) return { ok: true };
 
@@ -124,8 +149,6 @@ export class ToolExecutionProcessor {
   readonly name = "tool_execution";
 
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
-    if ((ctx as PhasePayload).phaseName !== "tool_execution") return { ok: true };
-
     const actions = ctx.turn.actions;
     if (!actions || actions.length === 0) return { ok: true };
 
@@ -157,10 +180,10 @@ export class ResultObservationProcessor {
   readonly name = "result_observation";
 
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
-    if ((ctx as PhasePayload).phaseName !== "result_observation") return { ok: true };
-
-    // Append all turn messages to working memory
-    for (const msg of ctx.turn.messages) {
+    // Only append messages generated THIS turn (not already in working memory)
+    const wmCount = ctx.session.workingMemory.getMessages().length;
+    const newMessages = ctx.turn.messages.slice(wmCount);
+    for (const msg of newMessages) {
       ctx.session.workingMemory.push(msg);
     }
 
@@ -178,9 +201,14 @@ export class ResultObservationProcessor {
 
 // --- registerBuiltInProcessors ---
 
-export function registerBuiltInProcessors(engine: HandlerEngine, opts?: ContextAssemblyOptions): void {
+export interface RegisterProcessorsOptions extends ContextAssemblyOptions {
+  onToken?: (token: string) => void;
+  onThinking?: (token: string) => void;
+}
+
+export function registerBuiltInProcessors(engine: HandlerEngine, opts?: RegisterProcessorsOptions): void {
   const contextAssembly = new ContextAssemblyProcessor(opts);
-  const llmInference = new LLMInferenceProcessor();
+  const llmInference = new LLMInferenceProcessor({ onToken: opts?.onToken, onThinking: opts?.onThinking });
   const actionResolution = new ActionResolutionProcessor();
   const toolExecution = new ToolExecutionProcessor();
   const resultObservation = new ResultObservationProcessor();
@@ -188,6 +216,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: ContextA
   engine.register({
     name: contextAssembly.name,
     phases: ["context_assembly"],
+    events: ["phase:before"],
     priority: 10,
     trust: 3,
     handle: (ctx) => contextAssembly.handle(ctx as HandlerContext),
@@ -196,6 +225,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: ContextA
   engine.register({
     name: llmInference.name,
     phases: ["llm_inference"],
+    events: ["phase:before"],
     priority: 10,
     trust: 3,
     handle: (ctx) => llmInference.handle(ctx as HandlerContext),
@@ -204,6 +234,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: ContextA
   engine.register({
     name: actionResolution.name,
     phases: ["action_resolution"],
+    events: ["phase:before"],
     priority: 10,
     trust: 3,
     handle: (ctx) => actionResolution.handle(ctx as HandlerContext),
@@ -212,6 +243,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: ContextA
   engine.register({
     name: toolExecution.name,
     phases: ["tool_execution"],
+    events: ["phase:before"],
     priority: 10,
     trust: 3,
     handle: (ctx) => toolExecution.handle(ctx as HandlerContext),
@@ -220,6 +252,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: ContextA
   engine.register({
     name: resultObservation.name,
     phases: ["result_observation"],
+    events: ["phase:before"],
     priority: 10,
     trust: 3,
     handle: (ctx) => resultObservation.handle(ctx as HandlerContext),
