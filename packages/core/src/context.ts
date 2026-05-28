@@ -5,6 +5,7 @@ import type {
   SessionConfig,
   PromptFragment,
   ToolResult,
+  ToolCall,
   HandlerDefinition,
 } from "./index.js";
 import type { HandlerResult } from "./handler-engine.js";
@@ -100,6 +101,8 @@ export class TurnContext {
   readonly messages: LLMMessage[] = [];
   readonly toolResults: ToolResult[] = [];
   readonly promptFragments: PromptFragment[] = [];
+  toolCalls?: ToolCall[];
+  actions?: ToolCall[];
   externalInput?: unknown;
 
   constructor(params: {

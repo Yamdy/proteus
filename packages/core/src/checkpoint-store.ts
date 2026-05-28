@@ -16,6 +16,7 @@ export interface CheckpointStore {
   createSession(meta: SessionMeta): void;
   loadSession(sessionId: string): SessionMeta | undefined;
   updateSession(sessionId: string, patch: Partial<SessionMeta>): void;
+  listSessions(): SessionMeta[];
 
   // Messages
   addMessages(sessionId: string, messages: LLMMessage[]): void;
@@ -84,6 +85,10 @@ export class InMemoryCheckpointStore implements CheckpointStore {
     const existing = this.sessions.get(sessionId);
     if (!existing) return;
     this.sessions.set(sessionId, { ...existing, ...patch, updatedAt: Date.now() });
+  }
+
+  listSessions(): SessionMeta[] {
+    return [...this.sessions.values()];
   }
 
   // --- Messages ---

@@ -103,6 +103,11 @@ export class SqliteCheckpointStore implements CheckpointStore {
     );
   }
 
+  listSessions(): SessionMeta[] {
+    const rows = this.db.prepare("SELECT session_id, config, created_at, updated_at FROM sessions").all() as any[];
+    return rows.map((r) => ({ sessionId: r.session_id, config: JSON.parse(r.config), createdAt: r.created_at, updatedAt: r.updated_at }));
+  }
+
   // --- Messages ---
 
   addMessages(sessionId: string, messages: LLMMessage[]): void {

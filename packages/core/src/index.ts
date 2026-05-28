@@ -33,6 +33,32 @@ export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
 export { DevServer } from "./dev-server.js";
 export type { DevServerOptions, SSEEvent } from "./dev-server.js";
 
+// --- VercelLLMProvider ---
+export { VercelLLMProvider } from "./vercel-llm-provider.js";
+export type { VercelLLMConfig } from "./vercel-llm-provider.js";
+
+// --- ToolRegistry ---
+export { ToolRegistry } from "./tool-registry.js";
+
+// --- SessionManager ---
+export { SessionManager } from "./session-manager.js";
+export type { SessionManagerOptions } from "./session-manager.js";
+
+// --- Processors ---
+export {
+  ContextAssemblyProcessor,
+  LLMInferenceProcessor,
+  ActionResolutionProcessor,
+  ToolExecutionProcessor,
+  ResultObservationProcessor,
+  registerBuiltInProcessors,
+} from "./processors.js";
+export type { ContextAssemblyOptions } from "./processors.js";
+
+// --- ChatServer ---
+export { ChatServer } from "./chat-server.js";
+export type { ChatServerOptions } from "./chat-server.js";
+
 // --- PromptFragment ---
 
 export interface PromptFragment {
