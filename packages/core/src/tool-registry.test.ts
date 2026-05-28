@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { z } from "zod";
 import { ToolRegistry } from "./tool-registry.js";
-import type { Tool, ToolDefinition, ToolResult, TurnContext } from "./index.js";
+import type { Tool, ToolDefinition, TurnContext } from "./index.js";
 
 function makeTool(overrides?: Partial<ToolDefinition>): Tool {
   const def: ToolDefinition = {

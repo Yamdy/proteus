@@ -1,7 +1,7 @@
 import type { HandlerContext } from "./context.js";
 import type { HandlerResult } from "./handler-engine.js";
 import type { HandlerEngine } from "./handler-engine.js";
-import type { LLMMessage, ToolCall } from "./index.js";
+import type { LLMMessage } from "./index.js";
 
 interface PhasePayload extends HandlerContext {
   phaseName: string;

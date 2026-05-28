@@ -34,7 +34,7 @@ function mapMessages(messages: LLMMessage[]) {
       return { role: "assistant" as const, content: [{ type: "text" as const, text: m.content }] };
     }
     // tool role
-    return { role: "tool" as const, content: [{ type: "tool-result" as const, toolCallId: m.toolCallId ?? "", toolName: m.name ?? "", output: { type: "json" as const, value: m.content } }] };
+    return { role: "tool" as const, content: [{ type: "tool-result" as const, toolCallId: m.toolCallId ?? "", toolName: m.name ?? "", result: m.content }] };
   });
 }
 
@@ -76,7 +76,6 @@ export class VercelLLMProvider implements LLMProvider {
     if (config.modelInstance) {
       this.model = config.modelInstance;
     } else {
-      const apiKeyEnv = config.apiKey ? { apiKey: config.apiKey } : {};
       const modName = PROVIDER_MODULES[config.provider];
       if (!modName) {
         throw new Error(`Unsupported provider: ${config.provider}`);
@@ -120,23 +119,24 @@ export class VercelLLMProvider implements LLMProvider {
     let usage = { promptTokens: 0, completionTokens: 0 };
 
     for await (const chunk of (await result).fullStream) {
-      if (chunk.type === "text") {
+      const c = chunk as any;
+      if (c.type === "text-delta" || c.type === "text") {
         yield {
-          content: chunk.text,
+          content: c.textDelta ?? c.text ?? "",
           usage: { promptTokens: 0, completionTokens: 0 },
           finishReason: "stop",
         };
-      } else if (chunk.type === "tool-call") {
+      } else if (c.type === "tool-call") {
         toolCalls.push({
-          id: (chunk as any).toolCallId ?? "",
-          name: (chunk as any).toolName ?? "",
-          arguments: (chunk as any).input ?? {},
+          id: c.toolCallId ?? "",
+          name: c.toolName ?? "",
+          arguments: c.input ?? {},
         });
-      } else if (chunk.type === "finish") {
-        finishReason = mapFinishReason((chunk as any).finishReason);
+      } else if (c.type === "finish") {
+        finishReason = mapFinishReason(c.finishReason);
         usage = {
-          promptTokens: (chunk as any).usage?.promptTokens ?? 0,
-          completionTokens: (chunk as any).usage?.completionTokens ?? 0,
+          promptTokens: c.usage?.promptTokens ?? 0,
+          completionTokens: c.usage?.completionTokens ?? 0,
         };
       }
     }

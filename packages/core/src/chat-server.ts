@@ -1,11 +1,22 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { AgentContext, SessionContext } from "./context.js";
 import { Harness } from "./harness.js";
 import { SessionManager } from "./session-manager.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import type { CheckpointStore } from "./checkpoint-store.js";
 import type { LLMProvider, SessionConfig } from "./index.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let INDEX_HTML = "";
+try {
+  INDEX_HTML = fs.readFileSync(path.join(__dirname, "dev-server-ui.html"), "utf-8");
+} catch {
+  // Visualizer HTML not available (e.g. running from dist without copy)
+}
 
 export interface ChatServerOptions {
   port: number;
@@ -74,6 +85,13 @@ export class ChatServer {
     }
 
     try {
+      // Visualizer UI
+      if (url.pathname === "/" && method === "GET") {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(INDEX_HTML);
+        return;
+      }
+
       // SSE
       if (url.pathname === "/events" && method === "GET") {
         this.handleSSE(req, res);
