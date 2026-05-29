@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { HandlerEngine, registerBuiltins, BUILTIN_HANDLERS } from "./handler-engine.js";
-import type { HandlerFn } from "./handler-engine.js";
+import type { HandlerFn, HandlerResult } from "./handler-engine.js";
 import type { HandlerDefinition } from "./index.js";
+import type { WorkerHandlerRunner } from "./worker-handler-runner.js";
 
 // --- Helpers ---
 
@@ -363,6 +364,76 @@ describe("HandlerEngine", () => {
         expect(h.trust).toBe(3);
         expect(h.builtin).toBe(true);
       }
+    });
+  });
+
+  // Behavior 16: trust:2 handlers routed to worker runner
+  describe("worker dispatch", () => {
+    function mockRunner(result: HandlerResult): WorkerHandlerRunner {
+      return { run: vi.fn().mockResolvedValue(result) } as unknown as WorkerHandlerRunner;
+    }
+
+    it("routes trust:2 handler to worker runner", async () => {
+      const runner = mockRunner({ ok: true, value: "from-worker" });
+      const engine = new HandlerEngine({ workerRunner: runner });
+      engine.register({
+        name: "untrusted",
+        events: ["turn:end"],
+        trust: 2,
+        handle: async () => ({ ok: true }),
+      });
+
+      const results = await engine.emit("turn:end", { sessionId: "s1" });
+
+      expect(runner.run).toHaveBeenCalledTimes(1);
+      expect(results).toEqual([{ ok: true, value: "from-worker" }]);
+    });
+
+    it("does NOT route trust:1 handler to worker runner", async () => {
+      const runner = mockRunner({ ok: true });
+      const engine = new HandlerEngine({ workerRunner: runner });
+      engine.register({
+        name: "trusted",
+        events: ["turn:end"],
+        trust: 1,
+        handle: async () => ({ ok: true, value: "from-main" }),
+      });
+
+      const results = await engine.emit("turn:end");
+
+      expect(runner.run).not.toHaveBeenCalled();
+      expect(results).toEqual([{ ok: true, value: "from-main" }]);
+    });
+
+    it("does NOT route trust:3 handler to worker runner", async () => {
+      const runner = mockRunner({ ok: true });
+      const engine = new HandlerEngine({ workerRunner: runner });
+      engine.register({
+        name: "builtin",
+        events: ["turn:end"],
+        trust: 3,
+        builtin: true,
+        handle: async () => ({ ok: true, value: "builtin" }),
+      });
+
+      const results = await engine.emit("turn:end");
+
+      expect(runner.run).not.toHaveBeenCalled();
+      expect(results).toEqual([{ ok: true, value: "builtin" }]);
+    });
+
+    it("degrades trust:2 handler to main thread when no runner", async () => {
+      const engine = new HandlerEngine();
+      engine.register({
+        name: "untrusted",
+        events: ["turn:end"],
+        trust: 2,
+        handle: async () => ({ ok: true, value: "fallback" }),
+      });
+
+      const results = await engine.emit("turn:end");
+
+      expect(results).toEqual([{ ok: true, value: "fallback" }]);
     });
   });
 });

@@ -4,6 +4,11 @@
 export { HandlerEngine, registerBuiltins, BUILTIN_HANDLERS } from "./handler-engine.js";
 export type { HandlerResult, HandlerFn, HandlerSnapshot, RegistrySnapshot } from "./handler-engine.js";
 
+// --- Worker Isolation ---
+export { WorkerPool } from "./worker-pool.js";
+export type { WorkerPoolOptions, WorkerTask, WorkerResult as WorkerPoolResult } from "./worker-pool.js";
+export { WorkerHandlerRunner, buildContextSnapshot } from "./worker-handler-runner.js";
+
 // --- Three-Region Context ---
 export {
   AgentContext,

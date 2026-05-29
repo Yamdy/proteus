@@ -1,4 +1,5 @@
 import type { HandlerDefinition } from "./index.js";
+import type { WorkerHandlerRunner } from "./worker-handler-runner.js";
 
 export type HandlerResult =
   | { ok: true; value?: unknown; transform?: boolean }
@@ -99,9 +100,11 @@ export class HandlerEngine {
   private nextOrder = 0;
   private emitDepth = 0;
   private readonly maxEmitDepth: number;
+  private readonly workerRunner?: WorkerHandlerRunner;
 
-  constructor(opts?: { maxEmitDepth?: number }) {
+  constructor(opts?: { maxEmitDepth?: number; workerRunner?: WorkerHandlerRunner }) {
     this.maxEmitDepth = opts?.maxEmitDepth ?? 10;
+    this.workerRunner = opts?.workerRunner;
   }
 
   register(handler: HandlerDefinition): void {
@@ -201,7 +204,13 @@ export class HandlerEngine {
       let interceptorsShortCircuited = false;
       for (const rh of matching) {
         if (rh.kind === "interceptor" && interceptorsShortCircuited) continue;
-        results.push(await rh.handler.handle(payload));
+        const shouldUseWorker =
+          rh.handler.trust === 2 && this.workerRunner && rh.kind === "interceptor";
+        results.push(
+          shouldUseWorker
+            ? await this.workerRunner!.run(rh.handler, payload)
+            : await rh.handler.handle(payload),
+        );
         if (rh.kind === "interceptor" && shouldShortCircuit(results[results.length - 1])) {
           interceptorsShortCircuited = true;
         }
