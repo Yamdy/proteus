@@ -34,6 +34,7 @@ export interface CheckpointStore {
   // Config Snapshots
   saveConfigSnapshot(snapshot: ConfigSnapshot): void;
   loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined;
+  listConfigSnapshots(sessionId: string): ConfigSnapshot[];
 
   // Cost Records
   addCostRecord(record: CostRecord): void;
@@ -51,6 +52,8 @@ export interface ConfigSnapshot {
   sessionId: string;
   handlers: unknown;
   timestamp: number;
+  description?: string;
+  checksum?: string;
 }
 
 export interface CostRecord {
@@ -146,6 +149,10 @@ export class InMemoryCheckpointStore implements CheckpointStore {
     const arr = this.configSnapshots.get(sessionId);
     if (!arr || arr.length === 0) return undefined;
     return arr[arr.length - 1];
+  }
+
+  listConfigSnapshots(sessionId: string): ConfigSnapshot[] {
+    return [...(this.configSnapshots.get(sessionId) ?? [])];
   }
 
   // --- Cost Records ---

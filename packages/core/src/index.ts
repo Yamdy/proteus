@@ -40,6 +40,13 @@ export type { ProviderConfig, OpenAIChatConfig, OpenAIChatProtocol } from "./llm
 // --- ToolRegistry ---
 export { ToolRegistry } from "./tool-registry.js";
 
+// --- ConfigSnapshotManager ---
+export { ConfigSnapshotManager } from "./config-snapshot-manager.js";
+
+// --- SelfModifyTool ---
+export { SelfModifyTool, SelfModifyParams } from "./self-modify.js";
+export type { SelfModifyToolOptions, SelfModifyParamsType } from "./self-modify.js";
+
 // --- SessionManager ---
 export { SessionManager } from "./session-manager.js";
 export type { SessionManagerOptions } from "./session-manager.js";

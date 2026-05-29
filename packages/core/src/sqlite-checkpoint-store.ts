@@ -46,7 +46,9 @@ export class SqliteCheckpointStore implements CheckpointStore {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id TEXT NOT NULL,
         handlers TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        description TEXT,
+        checksum TEXT
       );
 
       CREATE TABLE IF NOT EXISTS cost_records (
@@ -58,6 +60,9 @@ export class SqliteCheckpointStore implements CheckpointStore {
         timestamp INTEGER NOT NULL
       );
     `);
+    // Migration: add description/checksum columns to existing config_snapshots tables
+    try { this.db.exec(`ALTER TABLE config_snapshots ADD COLUMN description TEXT`); } catch { /* column exists */ }
+    try { this.db.exec(`ALTER TABLE config_snapshots ADD COLUMN checksum TEXT`); } catch { /* column exists */ }
   }
 
   getTableNames(): string[] {
@@ -168,17 +173,24 @@ export class SqliteCheckpointStore implements CheckpointStore {
   // --- Config Snapshots ---
 
   saveConfigSnapshot(snapshot: ConfigSnapshot): void {
-    this.db.prepare("INSERT INTO config_snapshots (session_id, handlers, timestamp) VALUES (?, ?, ?)").run(
+    this.db.prepare("INSERT INTO config_snapshots (session_id, handlers, timestamp, description, checksum) VALUES (?, ?, ?, ?, ?)").run(
       snapshot.sessionId,
       JSON.stringify(snapshot.handlers),
       snapshot.timestamp,
+      snapshot.description ?? null,
+      snapshot.checksum ?? null,
     );
   }
 
   loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined {
-    const row = this.db.prepare("SELECT handlers, timestamp FROM config_snapshots WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1").get(sessionId) as { handlers: string; timestamp: number } | undefined;
+    const row = this.db.prepare("SELECT handlers, timestamp, description, checksum FROM config_snapshots WHERE session_id = ? ORDER BY timestamp DESC LIMIT 1").get(sessionId) as { handlers: string; timestamp: number; description: string | null; checksum: string | null } | undefined;
     if (!row) return undefined;
-    return { sessionId, handlers: JSON.parse(row.handlers), timestamp: row.timestamp };
+    return { sessionId, handlers: JSON.parse(row.handlers), timestamp: row.timestamp, description: row.description ?? undefined, checksum: row.checksum ?? undefined };
+  }
+
+  listConfigSnapshots(sessionId: string): ConfigSnapshot[] {
+    const rows = this.db.prepare("SELECT handlers, timestamp, description, checksum FROM config_snapshots WHERE session_id = ? ORDER BY timestamp").all(sessionId) as { handlers: string; timestamp: number; description: string | null; checksum: string | null }[];
+    return rows.map((r) => ({ sessionId, handlers: JSON.parse(r.handlers), timestamp: r.timestamp, description: r.description ?? undefined, checksum: r.checksum ?? undefined }));
   }
 
   // --- Cost Records ---
