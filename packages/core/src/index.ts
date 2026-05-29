@@ -150,6 +150,12 @@ export interface HandlerDefinition {
   handle: (ctx: unknown) => Promise<import("./handler-engine.js").HandlerResult>;
 }
 
+// --- OTel Observability ---
+export type { ProteusSpan, ProteusTracer, ProteusMetric, OTelConfig } from "./otel-adapter.js";
+export { OTelAdapter, createOTelAdapter } from "./otel-adapter.js";
+export { NoopTracer, NoopMetric } from "./noop-tracer.js";
+export { OTelBridgeHandler, createOTelBridgeHandlers, registerOTelBridge } from "./otel-bridge.js";
+
 // --- Session & Memory ---
 
 export interface SessionConfig {
