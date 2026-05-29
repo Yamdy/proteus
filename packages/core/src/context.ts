@@ -9,6 +9,7 @@ import type {
   HandlerDefinition,
 } from "./index.js";
 import type { HandlerResult } from "./handler-engine.js";
+import { PromptFragmentRegistry } from "./prompt-fragment-registry.js";
 
 // --- HandlerEngineHandle (read-only interface for AgentContext) ---
 
@@ -64,15 +65,18 @@ export class AgentContext {
   readonly llm: LLMProvider;
   readonly tools: Map<string, Tool>;
   readonly handlerEngine: HandlerEngineHandle;
+  readonly fragmentRegistry: PromptFragmentRegistry;
 
   constructor(params: {
     llm: LLMProvider;
     tools: Map<string, Tool>;
     handlerEngine?: HandlerEngineHandle;
+    fragmentRegistry?: PromptFragmentRegistry;
   }) {
     this.llm = params.llm;
     this.tools = params.tools;
     this.handlerEngine = params.handlerEngine ?? { getHandlers: () => [], emit: async () => [] };
+    this.fragmentRegistry = params.fragmentRegistry ?? new PromptFragmentRegistry();
   }
 }
 

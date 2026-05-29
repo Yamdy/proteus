@@ -68,6 +68,22 @@ export interface PromptFragment {
   metadata?: Record<string, unknown>;
 }
 
+// --- PromptFragmentRegistry ---
+export {
+  PromptFragmentRegistry,
+} from "./prompt-fragment-registry.js";
+export type {
+  PromptFragmentEntry,
+  SerializedFragment,
+  SerializedFragments,
+} from "./prompt-fragment-registry.js";
+
+// --- PromptFragmentLoader ---
+export {
+  PromptFragmentLoader,
+  createPromptFragmentLoaderHandler,
+} from "./prompt-fragment-loader.js";
+
 // --- Tool ---
 
 export interface ToolDefinition {
