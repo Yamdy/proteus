@@ -26,7 +26,7 @@ async function setupClient(tools: Tool[] = []) {
   const server = new McpServer();
   for (const t of tools) server.registerTool(t);
 
-  const { clientTransport, serverTransport } = createTransportPair();
+  const { client: clientTransport, server: serverTransport } = createTransportPair();
 
   // Run server in background — it processes requests as the client sends them
   const serverPromise = server.serve(serverTransport);
