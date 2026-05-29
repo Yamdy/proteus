@@ -1,6 +1,7 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { z } from "zod";
-import type { Tool, ToolDefinition, ToolResult, TurnContext } from "./index.js";
+import type { Tool, ToolDefinition, ToolResult } from "./types.js";
+import type { TurnContext } from "./context.js";
 
 interface RegisteredTool {
   tool: Tool;

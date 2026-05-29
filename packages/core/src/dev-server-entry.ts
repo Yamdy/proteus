@@ -6,7 +6,7 @@ import { HandlerEngine } from "./handler-engine.js";
 import { createProvider } from "./llm/index.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
 import { registerBuiltInProcessors } from "./processors.js";
-import type { LLMProvider } from "./index.js";
+import type { LLMProvider } from "./types.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";

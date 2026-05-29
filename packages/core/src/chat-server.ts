@@ -11,7 +11,8 @@ import { Harness } from "./harness.js";
 import { SessionManager } from "./session-manager.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import type { CheckpointStore } from "./checkpoint-store.js";
-import type { LLMProvider, SessionConfig } from "./index.js";
+import type { LLMProvider, SessionConfig } from "./types.js";
+import { buildHealthResponse, type MetricsCollector } from "./metrics-collector.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let INDEX_HTML = "";
@@ -29,6 +30,7 @@ export interface ChatServerOptions {
   llmFactory?: (baseUrl: string, model: string, apiKey: string) => LLMProvider;
   llmConfig?: { baseUrl?: string; model?: string; apiKey?: string };
   dataDir?: string;
+  metricsCollector?: MetricsCollector;
 }
 
 const DEFAULT_SESSION_CONFIG: SessionConfig = {
@@ -49,6 +51,8 @@ export class ChatServer {
   private llmConfig = { baseUrl: "", model: "gpt-4o", apiKey: "" };
   private server: http.Server | undefined;
   private readonly dataFile: string | undefined;
+  private readonly metricsCollector?: MetricsCollector;
+  private readonly startTime = Date.now();
   private chatData: { sessions: Record<string, { messages: Array<{ role: string; content: string; thinking?: string }> }> } = { sessions: {} };
 
   constructor(opts: ChatServerOptions) {
@@ -67,6 +71,7 @@ export class ChatServer {
       this.dataFile = path.join(opts.dataDir, "chat-data.json");
       this.loadData();
     }
+    this.metricsCollector = opts.metricsCollector;
     this.sessionManager = new SessionManager({ store: opts.store });
     this.harness = new Harness({ store: opts.store });
 
@@ -178,6 +183,12 @@ export class ChatServer {
       // SSE
       if (url.pathname === "/events" && method === "GET") {
         this.handleSSE(req, res);
+        return;
+      }
+
+      // Health
+      if (url.pathname === "/health" && method === "GET") {
+        this.handleHealth(res);
         return;
       }
 
@@ -358,6 +369,28 @@ export class ChatServer {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ sessionId, turnId: result.turnId, status: result.status, response: responseText }));
+  }
+
+  private handleHealth(res: http.ServerResponse): void {
+    const metrics = this.metricsCollector?.getMetrics() ?? {
+      turnCount: 0,
+      activeChains: 0,
+      lastTurnDuration: 0,
+      lastTurnStatus: null,
+      consecutiveErrors: 0,
+      lastTurnTimestamp: null,
+    };
+    const costTotals = { promptTokens: 0, completionTokens: 0 };
+    const handlerCount = this.engine.serialize().handlers.length;
+    const response = buildHealthResponse({
+      metrics,
+      costTotals,
+      handlerCount,
+      sessionId: "",
+      uptime: Date.now() - this.startTime,
+    });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(response));
   }
 
   private handleGetConfig(res: http.ServerResponse): void {

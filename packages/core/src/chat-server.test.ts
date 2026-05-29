@@ -141,3 +141,54 @@ describe("ChatServer", () => {
     });
   });
 });
+
+describe("ChatServer Health Endpoint", () => {
+  let server: ChatServer;
+  let port: number;
+
+  beforeEach(async () => {
+    const store = new InMemoryCheckpointStore();
+    const engine = new HandlerEngine();
+    registerBuiltInProcessors(engine);
+    server = new ChatServer({ port: 0, llm: stubLLM(), store, engine });
+    const addr = await server.start();
+    port = typeof addr === "string" ? parseInt(addr) : addr.port;
+  });
+
+  afterEach(async () => {
+    await server.close();
+  });
+
+  function request(port: number, method: string, path: string): Promise<{ status: number; body: string }> {
+    return new Promise((resolve, reject) => {
+      const req = http.request({ hostname: "127.0.0.1", port, method, path }, (res) => {
+        let body = "";
+        res.on("data", (chunk) => { body += chunk; });
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+  }
+
+  it("returns 200 with health response fields", async () => {
+    const res = await request(port, "GET", "/health");
+    expect(res.status).toBe(200);
+    const data = JSON.parse(res.body);
+    expect(data).toHaveProperty("status");
+    expect(data).toHaveProperty("uptime");
+    expect(data).toHaveProperty("activeChains");
+    expect(data).toHaveProperty("turnCount");
+    expect(data).toHaveProperty("lastTurnDuration");
+    expect(data).toHaveProperty("costTotals");
+    expect(data).toHaveProperty("handlerCount");
+    expect(data).toHaveProperty("sessionId");
+    expect(data).toHaveProperty("timestamp");
+  });
+
+  it("returns healthy status when no activity", async () => {
+    const res = await request(port, "GET", "/health");
+    const data = JSON.parse(res.body);
+    expect(data.status).toBe("healthy");
+  });
+});

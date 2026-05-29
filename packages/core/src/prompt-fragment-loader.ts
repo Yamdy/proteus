@@ -1,6 +1,6 @@
 import type { HandlerContext } from "./context.js";
 import type { HandlerResult } from "./handler-engine.js";
-import type { HandlerDefinition } from "./index.js";
+import type { HandlerDefinition } from "./types.js";
 import type { PromptFragmentRegistry } from "./prompt-fragment-registry.js";
 
 // --- PromptFragmentLoader ---
@@ -60,6 +60,6 @@ export function createPromptFragmentLoaderHandler(
     priority: 5,
     trust: 3,
     builtin: true,
-    handle: (ctx: unknown) => loader.handle(ctx as HandlerContext),
+    handle: (ctx) => loader.handle(ctx),
   };
 }

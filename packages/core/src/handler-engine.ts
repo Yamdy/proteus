@@ -1,4 +1,4 @@
-import type { HandlerDefinition } from "./index.js";
+import type { HandlerDefinition, HandlerContext } from "./types.js";
 import type { WorkerHandlerRunner } from "./worker-handler-runner.js";
 
 export type HandlerResult =
@@ -8,7 +8,7 @@ export type HandlerResult =
   | { suspend: boolean; pendingInput?: unknown }
   | { error: Error; recoverable?: boolean };
 
-export type HandlerFn = (ctx: unknown) => Promise<HandlerResult>;
+export type HandlerFn = (ctx: HandlerContext) => Promise<HandlerResult>;
 
 function matchesHandler(rh: RegisteredHandler, event: string, payload?: unknown): boolean {
   const h = rh.handler;
@@ -209,7 +209,7 @@ export class HandlerEngine {
         results.push(
           shouldUseWorker
             ? await this.workerRunner!.run(rh.handler, payload)
-            : await rh.handler.handle(payload),
+            : await rh.handler.handle(payload as HandlerContext),
         );
         if (rh.kind === "interceptor" && shouldShortCircuit(results[results.length - 1])) {
           interceptorsShortCircuited = true;

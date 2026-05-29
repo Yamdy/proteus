@@ -2,7 +2,7 @@ import { SessionContext, TurnContext, HandlerContext as HandlerContextClass, Fro
 import type { AgentContext } from "./context.js";
 import type { CheckpointStore } from "./checkpoint-store.js";
 import type { HandlerResult } from "./handler-engine.js";
-import type { PhaseName } from "./index.js";
+import type { PhaseName } from "./types.js";
 import { LifecycleStateMachine } from "./lifecycle.js";
 
 const PHASES: PhaseName[] = [

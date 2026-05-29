@@ -1,6 +1,6 @@
 import { SessionContext } from "./context.js";
 import type { AgentContext } from "./context.js";
-import type { LLMMessage } from "./index.js";
+import type { LLMMessage } from "./types.js";
 import { Harness } from "./harness.js";
 import type { CheckpointStore } from "./checkpoint-store.js";
 

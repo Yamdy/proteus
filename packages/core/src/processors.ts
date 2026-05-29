@@ -1,7 +1,7 @@
 import type { HandlerContext } from "./context.js";
 import type { HandlerResult } from "./handler-engine.js";
 import type { HandlerEngine } from "./handler-engine.js";
-import type { LLMMessage } from "./index.js";
+import type { LLMMessage } from "./types.js";
 
 // --- ContextAssemblyProcessor ---
 
@@ -219,7 +219,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: Register
     events: ["phase:before"],
     priority: 10,
     trust: 3,
-    handle: (ctx) => contextAssembly.handle(ctx as HandlerContext),
+    handle: (ctx) => contextAssembly.handle(ctx),
   });
 
   engine.register({
@@ -228,7 +228,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: Register
     events: ["phase:before"],
     priority: 10,
     trust: 3,
-    handle: (ctx) => llmInference.handle(ctx as HandlerContext),
+    handle: (ctx) => llmInference.handle(ctx),
   });
 
   engine.register({
@@ -237,7 +237,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: Register
     events: ["phase:before"],
     priority: 10,
     trust: 3,
-    handle: (ctx) => actionResolution.handle(ctx as HandlerContext),
+    handle: (ctx) => actionResolution.handle(ctx),
   });
 
   engine.register({
@@ -246,7 +246,7 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: Register
     events: ["phase:before"],
     priority: 10,
     trust: 3,
-    handle: (ctx) => toolExecution.handle(ctx as HandlerContext),
+    handle: (ctx) => toolExecution.handle(ctx),
   });
 
   engine.register({
@@ -255,6 +255,6 @@ export function registerBuiltInProcessors(engine: HandlerEngine, opts?: Register
     events: ["phase:before"],
     priority: 10,
     trust: 3,
-    handle: (ctx) => resultObservation.handle(ctx as HandlerContext),
+    handle: (ctx) => resultObservation.handle(ctx),
   });
 }

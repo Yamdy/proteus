@@ -3,7 +3,7 @@ import type {
   LLMResponse,
   ToolDefinition,
   ToolCall,
-} from "../../index.js";
+} from "../../types.js";
 
 // --- Wire types (OpenAI Chat Completions format) ---
 

@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import type { CheckpointStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord } from "./checkpoint-store.js";
-import type { LLMMessage, FrozenContext } from "./index.js";
+import type { LLMMessage } from "./types.js";
+import type { FrozenContext } from "./context.js";
 
 export class SqliteCheckpointStore implements CheckpointStore {
   private db: Database.Database;

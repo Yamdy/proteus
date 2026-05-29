@@ -1,4 +1,4 @@
-import type { LLMProvider } from "../index.js";
+import type { LLMProvider } from "../types.js";
 import { createProtocol, type OpenAIChatConfig } from "./protocols/openai-chat.js";
 
 export interface ProviderConfig {

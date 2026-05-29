@@ -1,5 +1,5 @@
 import type { ProteusTracer, ProteusSpan, ProteusMetric } from "./otel-adapter.js";
-import type { HandlerDefinition, PhaseName } from "./index.js";
+import type { HandlerDefinition, PhaseName } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
 
 interface SpanStack {

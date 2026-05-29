@@ -1,4 +1,5 @@
-import type { SessionConfig, LLMMessage, FrozenContext } from "./index.js";
+import type { SessionConfig, LLMMessage } from "./types.js";
+import type { FrozenContext } from "./context.js";
 
 // --- Data types for each store ---
 

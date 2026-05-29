@@ -1,6 +1,6 @@
 import { SessionContext } from "./context.js";
 import type { CheckpointStore } from "./checkpoint-store.js";
-import type { SessionConfig } from "./index.js";
+import type { SessionConfig } from "./types.js";
 
 export interface SessionManagerOptions {
   store: CheckpointStore;

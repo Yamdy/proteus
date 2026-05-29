@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { WorkerPool } from "./worker-pool.js";
-import type { HandlerDefinition } from "./index.js";
+import type { HandlerDefinition } from "./types.js";
 import type { HandlerResult } from "./handler-engine.js";
 
 const HandlerResultSchema = z.union([

@@ -7,7 +7,7 @@ import type {
   ToolResult,
   ToolCall,
   HandlerDefinition,
-} from "./index.js";
+} from "./types.js";
 import type { HandlerResult } from "./handler-engine.js";
 import { PromptFragmentRegistry } from "./prompt-fragment-registry.js";
 
