@@ -10,38 +10,6 @@ export interface SessionMeta {
   updatedAt?: number;
 }
 
-// --- CheckpointStore interface ---
-
-export interface CheckpointStore {
-  // Sessions
-  createSession(meta: SessionMeta): void;
-  loadSession(sessionId: string): SessionMeta | undefined;
-  updateSession(sessionId: string, patch: Partial<SessionMeta>): void;
-  listSessions(): SessionMeta[];
-
-  // Messages
-  addMessages(sessionId: string, messages: LLMMessage[]): void;
-  loadMessages(sessionId: string): LLMMessage[];
-
-  // Checkpoints
-  saveCheckpoint(checkpoint: FrozenContext): void;
-  loadLatestCheckpoint(sessionId: string): FrozenContext | undefined;
-  loadCheckpoint(sessionId: string, turnId: string): FrozenContext | undefined;
-
-  // Event Log
-  appendEvent(event: StoreEvent): void;
-  queryEvents(sessionId: string, since?: number): StoreEvent[];
-
-  // Config Snapshots
-  saveConfigSnapshot(snapshot: ConfigSnapshot): void;
-  loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined;
-  listConfigSnapshots(sessionId: string): ConfigSnapshot[];
-
-  // Cost Records
-  addCostRecord(record: CostRecord): void;
-  loadCostRecords(sessionId: string): CostRecord[];
-}
-
 export interface StoreEvent {
   sessionId: string;
   event: string;
@@ -65,17 +33,51 @@ export interface CostRecord {
   timestamp: number;
 }
 
-// --- In-memory implementation ---
+// --- Narrow interfaces (one per concern) ---
 
-export class InMemoryCheckpointStore implements CheckpointStore {
+export interface SessionStore {
+  createSession(meta: SessionMeta): void;
+  loadSession(sessionId: string): SessionMeta | undefined;
+  updateSession(sessionId: string, patch: Partial<SessionMeta>): void;
+  deleteSession(sessionId: string): void;
+  listSessions(): SessionMeta[];
+}
+
+export interface MessageStore {
+  addMessages(sessionId: string, messages: LLMMessage[]): void;
+  loadMessages(sessionId: string): LLMMessage[];
+}
+
+export interface CheckpointLog {
+  saveCheckpoint(checkpoint: FrozenContext): void;
+  loadLatestCheckpoint(sessionId: string): FrozenContext | undefined;
+  loadCheckpoint(sessionId: string, turnId: string): FrozenContext | undefined;
+}
+
+export interface EventLog {
+  appendEvent(event: StoreEvent): void;
+  queryEvents(sessionId: string, since?: number): StoreEvent[];
+}
+
+export interface ConfigStore {
+  saveConfigSnapshot(snapshot: ConfigSnapshot): void;
+  loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined;
+  listConfigSnapshots(sessionId: string): ConfigSnapshot[];
+}
+
+export interface CostStore {
+  addCostRecord(record: CostRecord): void;
+  loadCostRecords(sessionId: string): CostRecord[];
+}
+
+// --- Composed type for consumers that need the full surface ---
+
+export type CheckpointStore = SessionStore & MessageStore & CheckpointLog & EventLog & ConfigStore & CostStore;
+
+// --- In-memory implementations (one per concern) ---
+
+export class InMemorySessionStore implements SessionStore {
   private sessions = new Map<string, SessionMeta>();
-  private messages = new Map<string, LLMMessage[]>();
-  private checkpoints = new Map<string, FrozenContext[]>();
-  private events: StoreEvent[] = [];
-  private configSnapshots = new Map<string, ConfigSnapshot[]>();
-  private costRecords = new Map<string, CostRecord[]>();
-
-  // --- Sessions ---
 
   createSession(meta: SessionMeta): void {
     this.sessions.set(meta.sessionId, { ...meta, createdAt: meta.createdAt ?? Date.now(), updatedAt: meta.updatedAt ?? Date.now() });
@@ -91,11 +93,17 @@ export class InMemoryCheckpointStore implements CheckpointStore {
     this.sessions.set(sessionId, { ...existing, ...patch, updatedAt: Date.now() });
   }
 
+  deleteSession(sessionId: string): void {
+    this.sessions.delete(sessionId);
+  }
+
   listSessions(): SessionMeta[] {
     return [...this.sessions.values()];
   }
+}
 
-  // --- Messages ---
+export class InMemoryMessageStore implements MessageStore {
+  private messages = new Map<string, LLMMessage[]>();
 
   addMessages(sessionId: string, messages: LLMMessage[]): void {
     const existing = this.messages.get(sessionId) ?? [];
@@ -106,8 +114,10 @@ export class InMemoryCheckpointStore implements CheckpointStore {
   loadMessages(sessionId: string): LLMMessage[] {
     return [...(this.messages.get(sessionId) ?? [])];
   }
+}
 
-  // --- Checkpoints ---
+export class InMemoryCheckpointLog implements CheckpointLog {
+  private checkpoints = new Map<string, FrozenContext[]>();
 
   saveCheckpoint(checkpoint: FrozenContext): void {
     const existing = this.checkpoints.get(checkpoint.sessionId) ?? [];
@@ -125,8 +135,10 @@ export class InMemoryCheckpointStore implements CheckpointStore {
     const arr = this.checkpoints.get(sessionId);
     return arr?.find((c) => c.turnId === turnId);
   }
+}
 
-  // --- Event Log ---
+export class InMemoryEventLog implements EventLog {
+  private events: StoreEvent[] = [];
 
   appendEvent(event: StoreEvent): void {
     this.events.push(event);
@@ -137,8 +149,10 @@ export class InMemoryCheckpointStore implements CheckpointStore {
       (e) => e.sessionId === sessionId && (since === undefined || e.timestamp >= since),
     );
   }
+}
 
-  // --- Config Snapshots ---
+export class InMemoryConfigStore implements ConfigStore {
+  private configSnapshots = new Map<string, ConfigSnapshot[]>();
 
   saveConfigSnapshot(snapshot: ConfigSnapshot): void {
     const existing = this.configSnapshots.get(snapshot.sessionId) ?? [];
@@ -155,8 +169,10 @@ export class InMemoryCheckpointStore implements CheckpointStore {
   listConfigSnapshots(sessionId: string): ConfigSnapshot[] {
     return [...(this.configSnapshots.get(sessionId) ?? [])];
   }
+}
 
-  // --- Cost Records ---
+export class InMemoryCostStore implements CostStore {
+  private costRecords = new Map<string, CostRecord[]>();
 
   addCostRecord(record: CostRecord): void {
     const existing = this.costRecords.get(record.sessionId) ?? [];
@@ -167,4 +183,67 @@ export class InMemoryCheckpointStore implements CheckpointStore {
   loadCostRecords(sessionId: string): CostRecord[] {
     return [...(this.costRecords.get(sessionId) ?? [])];
   }
+}
+
+// --- Factory: compose all in-memory stores into a CheckpointStore ---
+
+export function createInMemoryStore(): CheckpointStore {
+  return Object.assign(
+    {},
+    new InMemorySessionStore(),
+    new InMemoryMessageStore(),
+    new InMemoryCheckpointLog(),
+    new InMemoryEventLog(),
+    new InMemoryConfigStore(),
+    new InMemoryCostStore(),
+  );
+}
+
+// --- Backward-compatible class (delegates to per-concern stores) ---
+
+export class InMemoryCheckpointStore implements CheckpointStore {
+  private readonly _session: InMemorySessionStore;
+  private readonly _message: InMemoryMessageStore;
+  private readonly _checkpoint: InMemoryCheckpointLog;
+  private readonly _event: InMemoryEventLog;
+  private readonly _config: InMemoryConfigStore;
+  private readonly _cost: InMemoryCostStore;
+
+  constructor() {
+    this._session = new InMemorySessionStore();
+    this._message = new InMemoryMessageStore();
+    this._checkpoint = new InMemoryCheckpointLog();
+    this._event = new InMemoryEventLog();
+    this._config = new InMemoryConfigStore();
+    this._cost = new InMemoryCostStore();
+  }
+
+  // SessionStore
+  createSession(meta: SessionMeta): void { return this._session.createSession(meta); }
+  loadSession(sessionId: string): SessionMeta | undefined { return this._session.loadSession(sessionId); }
+  updateSession(sessionId: string, patch: Partial<SessionMeta>): void { return this._session.updateSession(sessionId, patch); }
+  deleteSession(sessionId: string): void { return this._session.deleteSession(sessionId); }
+  listSessions(): SessionMeta[] { return this._session.listSessions(); }
+
+  // MessageStore
+  addMessages(sessionId: string, messages: LLMMessage[]): void { return this._message.addMessages(sessionId, messages); }
+  loadMessages(sessionId: string): LLMMessage[] { return this._message.loadMessages(sessionId); }
+
+  // CheckpointLog
+  saveCheckpoint(checkpoint: FrozenContext): void { return this._checkpoint.saveCheckpoint(checkpoint); }
+  loadLatestCheckpoint(sessionId: string): FrozenContext | undefined { return this._checkpoint.loadLatestCheckpoint(sessionId); }
+  loadCheckpoint(sessionId: string, turnId: string): FrozenContext | undefined { return this._checkpoint.loadCheckpoint(sessionId, turnId); }
+
+  // EventLog
+  appendEvent(event: StoreEvent): void { return this._event.appendEvent(event); }
+  queryEvents(sessionId: string, since?: number): StoreEvent[] { return this._event.queryEvents(sessionId, since); }
+
+  // ConfigStore
+  saveConfigSnapshot(snapshot: ConfigSnapshot): void { return this._config.saveConfigSnapshot(snapshot); }
+  loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined { return this._config.loadLatestConfigSnapshot(sessionId); }
+  listConfigSnapshots(sessionId: string): ConfigSnapshot[] { return this._config.listConfigSnapshots(sessionId); }
+
+  // CostStore
+  addCostRecord(record: CostRecord): void { return this._cost.addCostRecord(record); }
+  loadCostRecords(sessionId: string): CostRecord[] { return this._cost.loadCostRecords(sessionId); }
 }

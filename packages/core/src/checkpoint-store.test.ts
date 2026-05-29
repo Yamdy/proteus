@@ -42,6 +42,19 @@ describe("CheckpointStore — sessions", () => {
 
     expect(store.loadSession("s1")!.config.logLevel).toBe("debug");
   });
+
+  it("deleteSession removes session", () => {
+    const store = new InMemoryCheckpointStore();
+    store.createSession({ sessionId: "s1", config: testConfig });
+    store.deleteSession("s1");
+    expect(store.loadSession("s1")).toBeUndefined();
+    expect(store.listSessions()).toEqual([]);
+  });
+
+  it("deleteSession on missing id is a no-op", () => {
+    const store = new InMemoryCheckpointStore();
+    expect(() => store.deleteSession("missing")).not.toThrow();
+  });
 });
 
 describe("CheckpointStore — messages", () => {

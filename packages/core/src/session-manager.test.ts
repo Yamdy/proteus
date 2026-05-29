@@ -62,13 +62,11 @@ describe("SessionManager", () => {
       expect(mgr.list()).toEqual([]);
     });
 
-    it("marks session as destroyed in store", () => {
+    it("deletes session from store", () => {
       const mgr = new SessionManager({ store });
       mgr.create("s1", testConfig("s1"));
       mgr.destroy("s1");
-      const meta = store.loadSession("s1");
-      expect(meta).toBeDefined();
-      expect((meta as any).destroyed).toBe(true);
+      expect(store.loadSession("s1")).toBeUndefined();
     });
 
     it("destroy on nonexistent session is a no-op", () => {

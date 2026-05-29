@@ -1,13 +1,13 @@
 import { SessionContext } from "./context.js";
-import type { CheckpointStore } from "./checkpoint-store.js";
+import type { SessionStore } from "./checkpoint-store.js";
 import type { SessionConfig } from "./types.js";
 
 export interface SessionManagerOptions {
-  store: CheckpointStore;
+  store: SessionStore;
 }
 
 export class SessionManager {
-  private readonly store: CheckpointStore;
+  private readonly store: SessionStore;
   private readonly sessions = new Map<string, SessionContext>();
 
   constructor(opts: SessionManagerOptions) {
@@ -18,7 +18,6 @@ export class SessionManager {
   private loadExistingSessions(): void {
     const metas = this.store.listSessions();
     for (const meta of metas) {
-      if ((meta as any).destroyed) continue;
       const session = new SessionContext(meta.config);
       this.sessions.set(meta.sessionId, session);
     }
@@ -41,7 +40,7 @@ export class SessionManager {
   destroy(sessionId: string): void {
     if (!this.sessions.has(sessionId)) return;
     this.sessions.delete(sessionId);
-    this.store.updateSession(sessionId, { destroyed: true } as any);
+    this.store.deleteSession(sessionId);
   }
 
   list(): string[] {

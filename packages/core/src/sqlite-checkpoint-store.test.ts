@@ -48,6 +48,21 @@ describe("SqliteCheckpointStore — sessions", () => {
     expect(store.loadSession("s1")!.config.logLevel).toBe("debug");
     store.close();
   });
+
+  it("deleteSession removes session", () => {
+    const store = new SqliteCheckpointStore(":memory:");
+    store.createSession({ sessionId: "s1", config: testConfig });
+    store.deleteSession("s1");
+    expect(store.loadSession("s1")).toBeUndefined();
+    expect(store.listSessions()).toEqual([]);
+    store.close();
+  });
+
+  it("deleteSession on missing id is a no-op", () => {
+    const store = new SqliteCheckpointStore(":memory:");
+    expect(() => store.deleteSession("missing")).not.toThrow();
+    store.close();
+  });
 });
 
 // --- Messages ---

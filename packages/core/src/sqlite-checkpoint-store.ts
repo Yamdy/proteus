@@ -1,86 +1,69 @@
 import Database from "better-sqlite3";
-import type { CheckpointStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord } from "./checkpoint-store.js";
+import type { CheckpointStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord, SessionStore, MessageStore, CheckpointLog, EventLog, ConfigStore, CostStore } from "./checkpoint-store.js";
 import type { LLMMessage } from "./types.js";
 import type { FrozenContext } from "./context.js";
 
-export class SqliteCheckpointStore implements CheckpointStore {
-  private db: Database.Database;
+// --- Shared migration (runs once per db) ---
 
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath);
-    this.migrate();
-  }
+function migrate(db: Database.Database): void {
+  db.pragma("journal_mode = WAL");
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      session_id TEXT PRIMARY KEY,
+      config TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
 
-  private migrate(): void {
-    this.db.pragma("journal_mode = WAL");
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        session_id TEXT PRIMARY KEY,
-        config TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      payload TEXT NOT NULL
+    );
 
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        payload TEXT NOT NULL
-      );
+    CREATE TABLE IF NOT EXISTS checkpoints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      turn_id TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      timestamp INTEGER NOT NULL
+    );
 
-      CREATE TABLE IF NOT EXISTS checkpoints (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        turn_id TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
-      );
+    CREATE TABLE IF NOT EXISTS event_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      event TEXT NOT NULL,
+      payload TEXT,
+      timestamp INTEGER NOT NULL
+    );
 
-      CREATE TABLE IF NOT EXISTS event_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        event TEXT NOT NULL,
-        payload TEXT,
-        timestamp INTEGER NOT NULL
-      );
+    CREATE TABLE IF NOT EXISTS config_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      handlers TEXT NOT NULL,
+      timestamp INTEGER NOT NULL,
+      description TEXT,
+      checksum TEXT
+    );
 
-      CREATE TABLE IF NOT EXISTS config_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        handlers TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        description TEXT,
-        checksum TEXT
-      );
+    CREATE TABLE IF NOT EXISTS cost_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      turn_id TEXT NOT NULL,
+      prompt_tokens INTEGER NOT NULL,
+      completion_tokens INTEGER NOT NULL,
+      timestamp INTEGER NOT NULL
+    );
+  `);
+  // Migration: add description/checksum columns to existing config_snapshots tables
+  try { db.exec(`ALTER TABLE config_snapshots ADD COLUMN description TEXT`); } catch { /* column exists */ }
+  try { db.exec(`ALTER TABLE config_snapshots ADD COLUMN checksum TEXT`); } catch { /* column exists */ }
+}
 
-      CREATE TABLE IF NOT EXISTS cost_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        turn_id TEXT NOT NULL,
-        prompt_tokens INTEGER NOT NULL,
-        completion_tokens INTEGER NOT NULL,
-        timestamp INTEGER NOT NULL
-      );
-    `);
-    // Migration: add description/checksum columns to existing config_snapshots tables
-    try { this.db.exec(`ALTER TABLE config_snapshots ADD COLUMN description TEXT`); } catch { /* column exists */ }
-    try { this.db.exec(`ALTER TABLE config_snapshots ADD COLUMN checksum TEXT`); } catch { /* column exists */ }
-  }
+// --- Per-concern SQLite implementations ---
 
-  getTableNames(): string[] {
-    const rows = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[];
-    return rows.map((r) => r.name);
-  }
-
-  getJournalMode(): string {
-    const row = this.db.pragma("journal_mode", { simple: true });
-    return row as string;
-  }
-
-  close(): void {
-    this.db.close();
-  }
-
-  // --- Sessions ---
+export class SqliteSessionStore implements SessionStore {
+  constructor(private readonly db: Database.Database) {}
 
   createSession(meta: SessionMeta): void {
     const now = Date.now();
@@ -109,12 +92,18 @@ export class SqliteCheckpointStore implements CheckpointStore {
     );
   }
 
+  deleteSession(sessionId: string): void {
+    this.db.prepare("DELETE FROM sessions WHERE session_id = ?").run(sessionId);
+  }
+
   listSessions(): SessionMeta[] {
     const rows = this.db.prepare("SELECT session_id, config, created_at, updated_at FROM sessions").all() as any[];
     return rows.map((r) => ({ sessionId: r.session_id, config: JSON.parse(r.config), createdAt: r.created_at, updatedAt: r.updated_at }));
   }
+}
 
-  // --- Messages ---
+export class SqliteMessageStore implements MessageStore {
+  constructor(private readonly db: Database.Database) {}
 
   addMessages(sessionId: string, messages: LLMMessage[]): void {
     const stmt = this.db.prepare("INSERT INTO messages (session_id, payload) VALUES (?, ?)");
@@ -127,8 +116,10 @@ export class SqliteCheckpointStore implements CheckpointStore {
     const rows = this.db.prepare("SELECT payload FROM messages WHERE session_id = ?").all(sessionId) as { payload: string }[];
     return rows.map((r) => JSON.parse(r.payload));
   }
+}
 
-  // --- Checkpoints ---
+export class SqliteCheckpointLog implements CheckpointLog {
+  constructor(private readonly db: Database.Database) {}
 
   saveCheckpoint(checkpoint: FrozenContext): void {
     this.db.prepare("INSERT INTO checkpoints (session_id, turn_id, payload, timestamp) VALUES (?, ?, ?, ?)").run(
@@ -150,8 +141,10 @@ export class SqliteCheckpointStore implements CheckpointStore {
     if (!row) return undefined;
     return JSON.parse(row.payload);
   }
+}
 
-  // --- Event Log ---
+export class SqliteEventLog implements EventLog {
+  constructor(private readonly db: Database.Database) {}
 
   appendEvent(event: StoreEvent): void {
     this.db.prepare("INSERT INTO event_log (session_id, event, payload, timestamp) VALUES (?, ?, ?, ?)").run(
@@ -170,8 +163,10 @@ export class SqliteCheckpointStore implements CheckpointStore {
     const rows = this.db.prepare("SELECT session_id, event, payload, timestamp FROM event_log WHERE session_id = ? ORDER BY timestamp").all(sessionId) as any[];
     return rows.map((r) => ({ sessionId: r.session_id, event: r.event, payload: r.payload ? JSON.parse(r.payload) : undefined, timestamp: r.timestamp }));
   }
+}
 
-  // --- Config Snapshots ---
+export class SqliteConfigStore implements ConfigStore {
+  constructor(private readonly db: Database.Database) {}
 
   saveConfigSnapshot(snapshot: ConfigSnapshot): void {
     this.db.prepare("INSERT INTO config_snapshots (session_id, handlers, timestamp, description, checksum) VALUES (?, ?, ?, ?, ?)").run(
@@ -193,8 +188,10 @@ export class SqliteCheckpointStore implements CheckpointStore {
     const rows = this.db.prepare("SELECT handlers, timestamp, description, checksum FROM config_snapshots WHERE session_id = ? ORDER BY timestamp").all(sessionId) as { handlers: string; timestamp: number; description: string | null; checksum: string | null }[];
     return rows.map((r) => ({ sessionId, handlers: JSON.parse(r.handlers), timestamp: r.timestamp, description: r.description ?? undefined, checksum: r.checksum ?? undefined }));
   }
+}
 
-  // --- Cost Records ---
+export class SqliteCostStore implements CostStore {
+  constructor(private readonly db: Database.Database) {}
 
   addCostRecord(record: CostRecord): void {
     this.db.prepare("INSERT INTO cost_records (session_id, turn_id, prompt_tokens, completion_tokens, timestamp) VALUES (?, ?, ?, ?, ?)").run(
@@ -210,4 +207,105 @@ export class SqliteCheckpointStore implements CheckpointStore {
     const rows = this.db.prepare("SELECT turn_id, prompt_tokens, completion_tokens, timestamp FROM cost_records WHERE session_id = ?").all(sessionId) as any[];
     return rows.map((r) => ({ sessionId, turnId: r.turn_id, promptTokens: r.prompt_tokens, completionTokens: r.completion_tokens, timestamp: r.timestamp }));
   }
+}
+
+// --- Factory: create all SQLite stores sharing one db ---
+
+export function createSqliteStore(dbPath: string): CheckpointStore & { close(): void; getTableNames(): string[]; getJournalMode(): string } {
+  const db = new Database(dbPath);
+  migrate(db);
+
+  const session = new SqliteSessionStore(db);
+  const message = new SqliteMessageStore(db);
+  const checkpoint = new SqliteCheckpointLog(db);
+  const event = new SqliteEventLog(db);
+  const config = new SqliteConfigStore(db);
+  const cost = new SqliteCostStore(db);
+
+  return Object.assign(
+    {},
+    session,
+    message,
+    checkpoint,
+    event,
+    config,
+    cost,
+    {
+      close(): void { db.close(); },
+      getTableNames(): string[] {
+        const rows = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[];
+        return rows.map((r) => r.name);
+      },
+      getJournalMode(): string {
+        const row = db.pragma("journal_mode", { simple: true });
+        return row as string;
+      },
+    },
+  );
+}
+
+// --- Backward-compatible class (delegates to per-concern stores) ---
+
+export class SqliteCheckpointStore implements CheckpointStore {
+  private readonly db: Database.Database;
+  private readonly _session: SqliteSessionStore;
+  private readonly _message: SqliteMessageStore;
+  private readonly _checkpoint: SqliteCheckpointLog;
+  private readonly _event: SqliteEventLog;
+  private readonly _config: SqliteConfigStore;
+  private readonly _cost: SqliteCostStore;
+
+  constructor(dbPath: string) {
+    this.db = new Database(dbPath);
+    migrate(this.db);
+    this._session = new SqliteSessionStore(this.db);
+    this._message = new SqliteMessageStore(this.db);
+    this._checkpoint = new SqliteCheckpointLog(this.db);
+    this._event = new SqliteEventLog(this.db);
+    this._config = new SqliteConfigStore(this.db);
+    this._cost = new SqliteCostStore(this.db);
+  }
+
+  getTableNames(): string[] {
+    const rows = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[];
+    return rows.map((r) => r.name);
+  }
+
+  getJournalMode(): string {
+    const row = this.db.pragma("journal_mode", { simple: true });
+    return row as string;
+  }
+
+  close(): void {
+    this.db.close();
+  }
+
+  // SessionStore
+  createSession(meta: SessionMeta): void { return this._session.createSession(meta); }
+  loadSession(sessionId: string): SessionMeta | undefined { return this._session.loadSession(sessionId); }
+  updateSession(sessionId: string, patch: Partial<SessionMeta>): void { return this._session.updateSession(sessionId, patch); }
+  deleteSession(sessionId: string): void { return this._session.deleteSession(sessionId); }
+  listSessions(): SessionMeta[] { return this._session.listSessions(); }
+
+  // MessageStore
+  addMessages(sessionId: string, messages: LLMMessage[]): void { return this._message.addMessages(sessionId, messages); }
+  loadMessages(sessionId: string): LLMMessage[] { return this._message.loadMessages(sessionId); }
+
+  // CheckpointLog
+  saveCheckpoint(checkpoint: FrozenContext): void { return this._checkpoint.saveCheckpoint(checkpoint); }
+  loadLatestCheckpoint(sessionId: string): FrozenContext | undefined { return this._checkpoint.loadLatestCheckpoint(sessionId); }
+  loadCheckpoint(sessionId: string, turnId: string): FrozenContext | undefined { return this._checkpoint.loadCheckpoint(sessionId, turnId); }
+
+  // EventLog
+  appendEvent(event: StoreEvent): void { return this._event.appendEvent(event); }
+  queryEvents(sessionId: string, since?: number): StoreEvent[] { return this._event.queryEvents(sessionId, since); }
+
+  // ConfigStore
+  saveConfigSnapshot(snapshot: ConfigSnapshot): void { return this._config.saveConfigSnapshot(snapshot); }
+  loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined { return this._config.loadLatestConfigSnapshot(sessionId); }
+  listConfigSnapshots(sessionId: string): ConfigSnapshot[] { return this._config.listConfigSnapshots(sessionId); }
+
+  // CostStore
+  addCostRecord(record: CostRecord): void { return this._cost.addCostRecord(record); }
+  loadCostRecords(sessionId: string): CostRecord[] { return this._cost.loadCostRecords(sessionId); }
 }

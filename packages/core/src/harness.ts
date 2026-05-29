@@ -1,6 +1,6 @@
 import { SessionContext, TurnContext, HandlerContext as HandlerContextClass, FrozenContext } from "./context.js";
 import type { AgentContext } from "./context.js";
-import type { CheckpointStore } from "./checkpoint-store.js";
+import type { CheckpointLog } from "./checkpoint-store.js";
 import type { HandlerResult } from "./types.js";
 import type { PhaseName } from "./types.js";
 import { LifecycleStateMachine } from "./lifecycle.js";
@@ -32,11 +32,11 @@ export interface ChainResult {
 }
 
 export interface HarnessOptions {
-  store: CheckpointStore;
+  store: CheckpointLog;
 }
 
 export class Harness {
-  private readonly store: CheckpointStore;
+  private readonly store: CheckpointLog;
   readonly lifecycle: LifecycleStateMachine;
 
   constructor(opts: HarnessOptions) {
