@@ -1,5 +1,6 @@
 import type { CheckpointStore, ConfigSnapshot } from "./checkpoint-store.js";
-import type { HandlerEngine, HandlerFn, RegistrySnapshot } from "./handler-engine.js";
+import type { HandlerEngine, RegistrySnapshot } from "./handler-engine.js";
+import type { HandlerFn } from "./types.js";
 
 function simpleHash(data: string): string {
   let hash = 0;

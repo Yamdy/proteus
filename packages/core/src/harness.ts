@@ -1,7 +1,7 @@
 import { SessionContext, TurnContext, HandlerContext as HandlerContextClass, FrozenContext } from "./context.js";
 import type { AgentContext } from "./context.js";
 import type { CheckpointStore } from "./checkpoint-store.js";
-import type { HandlerResult } from "./handler-engine.js";
+import type { HandlerResult } from "./types.js";
 import type { PhaseName } from "./types.js";
 import { LifecycleStateMachine } from "./lifecycle.js";
 

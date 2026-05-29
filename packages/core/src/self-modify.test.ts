@@ -3,7 +3,7 @@ import { SelfModifyTool } from "./self-modify.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { ConfigSnapshotManager } from "./config-snapshot-manager.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
-import type { HandlerFn } from "./handler-engine.js";
+import type { HandlerFn } from "./types.js";
 import type { TurnContext } from "./index.js";
 
 function makeContext(): TurnContext {

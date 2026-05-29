@@ -3,7 +3,7 @@ import { ConfigSnapshotManager } from "./config-snapshot-manager.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
 import type { HandlerDefinition } from "./index.js";
-import type { HandlerFn } from "./handler-engine.js";
+import type { HandlerFn } from "./types.js";
 
 function makeHandler(name: string, opts?: { events?: string[]; priority?: number; builtin?: boolean; trust?: 0 | 1 | 2 | 3 }): HandlerDefinition {
   return {

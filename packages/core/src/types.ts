@@ -3,13 +3,9 @@
 // This module defines all core domain types. Other modules import types
 // from here instead of from index.ts, which breaks the circular dependency
 // chain that previously ran through the barrel.
-
-import type { HandlerContext } from "./context.js";
-import type { HandlerResult } from "./handler-engine.js";
-
-// Re-export for consumers that need these types via @proteus/core/types
-export type { HandlerContext } from "./context.js";
-export type { HandlerResult } from "./handler-engine.js";
+//
+// This file is a leaf module: zero static imports from internal packages.
+// Cross-module references use import() for lazy type resolution.
 
 // --- Prompt Fragment ---
 
@@ -92,6 +88,15 @@ export type PhaseName =
   | "tool_execution"
   | "result_observation";
 
+export type HandlerResult =
+  | { ok: true; value?: unknown; transform?: boolean }
+  | { ok: false; reason: string }
+  | { abort: boolean; reason: string; retryFrom?: number }
+  | { suspend: true; pendingInput?: unknown }
+  | { error: Error; recoverable?: boolean };
+
+export type HandlerFn = (ctx: import("./context.js").HandlerContext) => Promise<HandlerResult>;
+
 export interface HandlerDefinition {
   name: string;
   phases?: PhaseName[];
@@ -99,7 +104,7 @@ export interface HandlerDefinition {
   priority?: number;
   trust: 0 | 1 | 2 | 3;
   builtin?: boolean;
-  handle: (ctx: HandlerContext) => Promise<HandlerResult>;
+  handle: (ctx: import("./context.js").HandlerContext) => Promise<HandlerResult>;
 }
 
 // --- Session ---

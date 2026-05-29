@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { HandlerEngine, registerBuiltins, BUILTIN_HANDLERS } from "./handler-engine.js";
-import type { HandlerFn, HandlerResult } from "./handler-engine.js";
+import type { HandlerFn, HandlerResult } from "./types.js";
 import type { HandlerDefinition } from "./index.js";
 import type { WorkerHandlerRunner } from "./worker-handler-runner.js";
 

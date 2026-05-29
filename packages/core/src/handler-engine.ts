@@ -1,14 +1,6 @@
-import type { HandlerDefinition, HandlerContext } from "./types.js";
+import type { HandlerDefinition, HandlerResult, HandlerFn } from "./types.js";
+import type { HandlerContext } from "./context.js";
 import type { WorkerHandlerRunner } from "./worker-handler-runner.js";
-
-export type HandlerResult =
-  | { ok: true; value?: unknown; transform?: boolean }
-  | { ok: false; reason: string }
-  | { abort: boolean; reason: string; retryFrom?: number }
-  | { suspend: boolean; pendingInput?: unknown }
-  | { error: Error; recoverable?: boolean };
-
-export type HandlerFn = (ctx: HandlerContext) => Promise<HandlerResult>;
 
 function matchesHandler(rh: RegisteredHandler, event: string, payload?: unknown): boolean {
   const h = rh.handler;

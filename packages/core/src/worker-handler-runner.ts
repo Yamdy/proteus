@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { WorkerPool } from "./worker-pool.js";
 import type { HandlerDefinition } from "./types.js";
-import type { HandlerResult } from "./handler-engine.js";
+import type { HandlerResult } from "./types.js";
 
 const HandlerResultSchema = z.union([
   z.object({ ok: z.literal(true), value: z.unknown().optional(), transform: z.boolean().optional() }),

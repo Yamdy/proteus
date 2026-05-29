@@ -1,5 +1,5 @@
 import type { HandlerContext } from "./context.js";
-import type { HandlerResult } from "./handler-engine.js";
+import type { HandlerResult } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import type { LLMMessage } from "./types.js";
 

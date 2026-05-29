@@ -8,7 +8,7 @@ import type {
   ToolCall,
   HandlerDefinition,
 } from "./types.js";
-import type { HandlerResult } from "./handler-engine.js";
+import type { HandlerResult } from "./types.js";
 import { PromptFragmentRegistry } from "./prompt-fragment-registry.js";
 
 // --- HandlerEngineHandle (read-only interface for AgentContext) ---

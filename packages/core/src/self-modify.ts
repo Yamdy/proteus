@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { Tool, ToolDefinition, ToolResult } from "./types.js";
 import type { TurnContext } from "./context.js";
-import type { HandlerEngine, HandlerFn, HandlerResult } from "./handler-engine.js";
+import type { HandlerEngine } from "./handler-engine.js";
+import type { HandlerFn, HandlerResult } from "./types.js";
 import type { ConfigSnapshotManager } from "./config-snapshot-manager.js";
 
 // --- Parameter schema ---

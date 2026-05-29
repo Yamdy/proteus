@@ -1,5 +1,5 @@
 import type { HandlerContext } from "./context.js";
-import type { HandlerResult } from "./handler-engine.js";
+import type { HandlerResult } from "./types.js";
 import type { HandlerDefinition } from "./types.js";
 import type { PromptFragmentRegistry } from "./prompt-fragment-registry.js";
 
