@@ -67,6 +67,8 @@ export const BUILTIN_HANDLERS: HandlerDefinition[] = [
     builtin: true,
     handle: async () => ({ ok: true }),
   },
+  // Real otel-bridge handler registered via registerOTelBridge() from ./otel-bridge.ts.
+  // Subscribes to chain:start/end, turn:start/end, phase:before/after events.
   {
     name: "otel-bridge",
     phases: ["context_assembly", "llm_inference", "action_resolution", "tool_execution", "result_observation"],
