@@ -25,6 +25,10 @@ export { SqliteCheckpointStore } from "./sqlite-checkpoint-store.js";
 export { Harness } from "./harness.js";
 export type { TurnResult, ChainResult, ChainOptions, HarnessOptions } from "./harness.js";
 
+// --- SubHarness ---
+export { SubHarness } from "./sub-harness.js";
+export type { IsolationMode, CompactionFn, SubHarnessOptions, SubHarnessResult } from "./sub-harness.js";
+
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
 export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
