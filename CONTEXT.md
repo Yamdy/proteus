@@ -249,14 +249,9 @@ New API formats (Anthropic Messages, OpenAI Responses, etc.) are added as new pr
 The sole interface between Agent Loop and the external world. Connects Action Resolution to Tool Execution.
 
 ```
-interface ToolContext {
-  turnId: string;                       // identifies the current turn
-  sessionId: string;                    // identifies the session
-}
-
 interface Tool {
   definition: ToolDefinition;           // JSON Schema, provider-agnostic
-  execute(params, context: ToolContext): Promise<ToolResult>;
+  execute(params, context): Promise<ToolResult>;
 }
 
 interface ToolDefinition {

@@ -120,10 +120,6 @@ export class TurnContext {
     this.session = params.session;
   }
 
-  get sessionId(): string {
-    return this.session.sessionId;
-  }
-
   addMessage(msg: LLMMessage): void {
     this.messages.push(msg);
   }

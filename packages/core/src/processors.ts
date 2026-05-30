@@ -1,4 +1,4 @@
-import type { HandlerContext } from "./context.js";
+import type { HandlerContext, TurnContext } from "./context.js";
 import type { HandlerResult, LLMMessage, Tool, ToolResult } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import { sha256 } from "./utils/hash.js";
@@ -226,7 +226,7 @@ export interface ExecutionEnvironment {
   execute(
     tool: Tool,
     params: Record<string, unknown>,
-    context: import("./types.js").ToolContext,
+    context: TurnContext,
   ): Promise<ToolResult>;
 }
 
@@ -234,7 +234,7 @@ export class LocalExecutionEnvironment implements ExecutionEnvironment {
   async execute(
     tool: Tool,
     params: Record<string, unknown>,
-    context: import("./types.js").ToolContext,
+    context: TurnContext,
   ): Promise<ToolResult> {
     return tool.execute(params, context);
   }

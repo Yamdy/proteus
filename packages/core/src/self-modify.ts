@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Tool, ToolDefinition, ToolResult } from "./types.js";
-import type { ToolContext } from "./types.js";
+import type { TurnContext } from "./context.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import type { HandlerFn, HandlerResult } from "./types.js";
 import type { ConfigSnapshotManager } from "./config-snapshot-manager.js";
@@ -67,7 +67,7 @@ export class SelfModifyTool implements Tool {
     this.onEvent = opts.onEvent ?? (() => {});
   }
 
-  async execute(params: Record<string, unknown>, _context: ToolContext): Promise<ToolResult> {
+  async execute(params: Record<string, unknown>, _context: TurnContext): Promise<ToolResult> {
     const parsed = SelfModifyParams.safeParse(params);
     if (!parsed.success) {
       return { output: null, error: { message: `Invalid parameters: ${parsed.error.message}`, retryable: false } };

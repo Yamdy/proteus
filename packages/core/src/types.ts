@@ -37,16 +37,11 @@ export interface Artifact {
   metadata?: Record<string, unknown>;
 }
 
-export interface ToolContext {
-  turnId: string;
-  sessionId: string;
-}
-
 export interface Tool {
   definition: ToolDefinition;
   execute(
     params: Record<string, unknown>,
-    context: ToolContext,
+    context: import("./context.js").TurnContext,
   ): Promise<ToolResult>;
 }
 
