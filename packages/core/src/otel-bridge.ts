@@ -47,8 +47,8 @@ export class OTelBridgeHandler {
     s.turnStartTime = Date.now();
   }
 
-  handleTurnEnd(p: { turnId: string; status: string; error?: Error }): void {
-    const s = this.findActiveTurnStack();
+  handleTurnEnd(p: { turnId: string; sessionId?: string; status: string; error?: Error }): void {
+    const s = p.sessionId ? this.getStack(p.sessionId) : this.findActiveTurnStack();
     if (s?.turnSpan) {
       if (p.status === "errored") {
         s.turnSpan.setStatus("error", p.error?.message ?? "errored");

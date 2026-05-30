@@ -8,6 +8,7 @@ import type {
   ToolCall,
   HandlerDefinition,
 } from "./types.js";
+import { sha256 } from "./utils/hash.js";
 import type { HandlerResult } from "./types.js";
 import { PromptFragmentRegistry } from "./prompt-fragment-registry.js";
 
@@ -156,15 +157,6 @@ export class HandlerContext {
 
 // --- FrozenContext (deep-readonly snapshot) ---
 
-function simpleHash(data: string): string {
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
-  }
-  return Math.abs(hash).toString(36);
-}
-
 export class FrozenContext {
   readonly timestamp: number;
   readonly checksum: string;
@@ -212,7 +204,7 @@ export class FrozenContext {
       costTotals: ctx.session.costTracker.getTotals(),
     };
     const payload = JSON.stringify(data);
-    const checksum = simpleHash(payload);
+    const checksum = sha256(payload);
     return new FrozenContext({ timestamp: ts, checksum, ...data });
   }
 

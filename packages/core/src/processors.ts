@@ -1,6 +1,7 @@
 import type { HandlerContext, TurnContext } from "./context.js";
 import type { HandlerResult, LLMMessage, Tool, ToolResult } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
+import { sha256 } from "./utils/hash.js";
 
 // --- KV-cache prefix stability ---
 
@@ -19,15 +20,6 @@ export interface CacheBreakPayload {
   prefixMessages: LLMMessage[];
 }
 
-function simpleHash(data: string): string {
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
-  }
-  return Math.abs(hash).toString(36);
-}
-
 function computePrefixHash(messages: LLMMessage[]): string {
   // Prefix = contiguous system messages at the start of the assembled list
   const prefix: LLMMessage[] = [];
@@ -36,7 +28,7 @@ function computePrefixHash(messages: LLMMessage[]): string {
     prefix.push(m);
   }
   if (prefix.length === 0) return "";
-  return simpleHash(JSON.stringify(prefix));
+  return sha256(JSON.stringify(prefix));
 }
 
 // --- ContextAssemblyProcessor ---

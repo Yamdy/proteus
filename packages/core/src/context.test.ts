@@ -253,6 +253,23 @@ describe("FrozenContext", () => {
     expect(frozen1.checksum).toBe(frozen2.checksum);
   });
 
+  it("checksum is a 64-character hex string (SHA-256)", () => {
+    const agent = new AgentContext({ llm: stubLLMProvider(), tools: new Map() });
+    const session = new SessionContext({
+      sessionId: "s1",
+      llm: { provider: "openai", model: "gpt-4", temperature: 0.7 },
+      tools: {},
+      logLevel: "info",
+    });
+    const turn = new TurnContext({ turnId: "t1", agent, session });
+    const ctx = new HandlerContext({ agent, session, turn });
+
+    const frozen = ctx.freeze();
+
+    expect(frozen.checksum).toHaveLength(64);
+    expect(frozen.checksum).toMatch(/^[0-9a-f]{64}$/);
+  });
+
   it("exposes snapshot data as read-only properties", () => {
     const agent = new AgentContext({ llm: stubLLMProvider(), tools: new Map() });
     const session = new SessionContext({

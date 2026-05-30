@@ -80,6 +80,19 @@ describe("ContextAssemblyProcessor", () => {
     expect((result as any).ok).toBe(true);
     expect(ctx.turn.messages.length).toBeLessThan(100);
   });
+
+  it("prefix hash is a 64-character hex string (SHA-256)", async () => {
+    const { ctx } = makeCtx();
+    ctx.turn.addPromptFragment({ role: "system", content: "You are helpful." });
+
+    const processor = new ContextAssemblyProcessor();
+    await processor.handle(withPhase(ctx, "context_assembly"));
+
+    // Access lastPrefixHash via the processor's public interface
+    // The hash is used internally for cache prefix stability detection
+    // We verify it indirectly by checking the event payload
+    expect(processor.lastPrefixHash).toMatch(/^[0-9a-f]{64}$/);
+  });
 });
 
 describe("LLMInferenceProcessor", () => {

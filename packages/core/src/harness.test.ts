@@ -66,6 +66,22 @@ describe("Harness — happy path", () => {
     expect(checkpoint).toBeDefined();
     expect(checkpoint!.sessionId).toBe("s1");
   });
+
+  it("turn:end payload includes sessionId", async () => {
+    const payloads: any[] = [];
+    const { agent, session, engine } = makeContext();
+
+    engine.observe("turn:end", async (p: any) => { payloads.push(p); return { ok: true as const }; });
+
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+    await harness.runTurn(session, agent);
+
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0].sessionId).toBe("s1");
+    expect(payloads[0].turnId).toBeDefined();
+    expect(payloads[0].status).toBe("completed");
+  });
 });
 
 describe("Harness — handler interception", () => {

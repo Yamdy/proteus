@@ -182,7 +182,7 @@ export class Harness {
       const beforeResults = await engine.emit("phase:before", phasePayload);
       const blockResult = this.findBlock(beforeResults);
       if (blockResult) {
-        await engine.emit("turn:end", { turnId, status: "aborted" });
+        await engine.emit("turn:end", { turnId, sessionId, status: "aborted" });
         return { status: "aborted", turnId };
       }
 
@@ -191,19 +191,19 @@ export class Harness {
         const frozen = FrozenContext.forSuspend(ctx, suspendResult.pendingInput);
         this.store.saveCheckpoint(frozen);
         this.lifecycle.transition("suspend");
-        await engine.emit("turn:end", { turnId, status: "suspended" });
+        await engine.emit("turn:end", { turnId, sessionId, status: "suspended" });
         return { status: "suspended", turnId, suspendInput: suspendResult.pendingInput };
       }
 
       const abortResult = this.findAbort(beforeResults);
       if (abortResult) {
-        await engine.emit("turn:end", { turnId, status: "aborted" });
+        await engine.emit("turn:end", { turnId, sessionId, status: "aborted" });
         return { status: "aborted", turnId };
       }
 
       const errorResult = this.findTerminalError(beforeResults);
       if (errorResult) {
-        await engine.emit("turn:end", { turnId, status: "errored" });
+        await engine.emit("turn:end", { turnId, sessionId, status: "errored" });
         return { status: "errored", turnId, error: errorResult.error };
       }
 
@@ -212,7 +212,7 @@ export class Harness {
 
     const frozen = ctx.freeze();
     this.store.saveCheckpoint(frozen);
-    await engine.emit("turn:end", { turnId, status: "completed" });
+    await engine.emit("turn:end", { turnId, sessionId, status: "completed" });
 
     return { status: "completed", turnId };
   }

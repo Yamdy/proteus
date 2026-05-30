@@ -116,6 +116,54 @@ describe("OTelBridgeHandler", () => {
       expect(tracer.spans[0].setAttribute).toHaveBeenCalledWith("chain.id", "c1");
       expect(tracer.spans[1].setAttribute).toHaveBeenCalledWith("chain.id", "c2");
     });
+
+    it("handleTurnEnd with sessionId closes correct session's turn span", () => {
+      // Setup two concurrent sessions with active turns
+      bridge.handleChainStart({ chainId: "c1", sessionId: "s1" });
+      bridge.handleChainStart({ chainId: "c2", sessionId: "s2" });
+      bridge.handleTurnStart({ turnId: "t1", sessionId: "s1" });
+      bridge.handleTurnStart({ turnId: "t2", sessionId: "s2" });
+
+      // spans: [0]=s1 chain, [1]=s2 chain, [2]=s1 turn, [3]=s2 turn
+      const s1TurnSpan = tracer.spans[2]; // s1's turn span
+      const s2TurnSpan = tracer.spans[3]; // s2's turn span
+
+      // End s1's turn with explicit sessionId
+      bridge.handleTurnEnd({ turnId: "t1", sessionId: "s1", status: "completed" });
+
+      // s1's turn span should be ended
+      expect(s1TurnSpan.end).toHaveBeenCalled();
+      // s2's turn span should NOT be ended
+      expect(s2TurnSpan.end).not.toHaveBeenCalled();
+    });
+
+    it("handleTurnEnd without sessionId falls back to findActiveTurnStack (backward compat)", () => {
+      bridge.handleChainStart({ chainId: "c1", sessionId: "s1" });
+      bridge.handleTurnStart({ turnId: "t1", sessionId: "s1" });
+
+      const turnSpan = tracer.spans[1];
+
+      // End turn without sessionId (old behavior)
+      bridge.handleTurnEnd({ turnId: "t1", status: "completed" });
+
+      // Should still work for single-session scenario
+      expect(turnSpan.end).toHaveBeenCalled();
+    });
+
+    it("metrics for turn:end use the correct session's turnStartTime", () => {
+      bridge.handleChainStart({ chainId: "c1", sessionId: "s1" });
+      bridge.handleChainStart({ chainId: "c2", sessionId: "s2" });
+      bridge.handleTurnStart({ turnId: "t1", sessionId: "s1" });
+      bridge.handleTurnStart({ turnId: "t2", sessionId: "s2" });
+
+      // End s1's turn with explicit sessionId
+      bridge.handleTurnEnd({ turnId: "t1", sessionId: "s1", status: "completed" });
+
+      // Should have recorded duration metric
+      const durationMetrics = metric.calls.filter(c => c.n === "proteus.turn.duration");
+      expect(durationMetrics).toHaveLength(1);
+      expect(durationMetrics[0].a).toEqual({ status: "completed" });
+    });
   });
 });
 

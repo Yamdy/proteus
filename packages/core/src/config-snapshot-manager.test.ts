@@ -81,6 +81,16 @@ describe("ConfigSnapshotManager", () => {
 
       expect(snap1.checksum).not.toBe(snap2.checksum);
     });
+
+    it("checksum is a 64-character hex string (SHA-256)", () => {
+      const engine = new HandlerEngine();
+      engine.register(makeHandler("h1"));
+
+      const snap = manager.snapshot("s1", engine);
+
+      expect(snap.checksum).toHaveLength(64);
+      expect(snap.checksum).toMatch(/^[0-9a-f]{64}$/);
+    });
   });
 
   describe("rollback()", () => {

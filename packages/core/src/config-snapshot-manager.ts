@@ -1,15 +1,7 @@
 import type { ConfigStore, ConfigSnapshot } from "./checkpoint-store.js";
 import type { HandlerEngine, RegistrySnapshot } from "./handler-engine.js";
 import type { HandlerFn } from "./types.js";
-
-function simpleHash(data: string): string {
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i);
-    hash = ((hash << 5) - hash + char) | 0;
-  }
-  return Math.abs(hash).toString(36);
-}
+import { sha256 } from "./utils/hash.js";
 
 export class ConfigSnapshotManager {
   constructor(private readonly store: ConfigStore) {}
@@ -21,7 +13,7 @@ export class ConfigSnapshotManager {
   snapshot(sessionId: string, engine: HandlerEngine, description?: string): ConfigSnapshot {
     const registry = engine.serialize();
     const payload = JSON.stringify(registry);
-    const checksum = simpleHash(payload);
+    const checksum = sha256(payload);
     const snap: ConfigSnapshot = {
       sessionId,
       handlers: registry,
@@ -47,7 +39,7 @@ export class ConfigSnapshotManager {
     const registry = snap.handlers as RegistrySnapshot;
     // Verify checksum (warn on mismatch, don't block)
     if (snap.checksum) {
-      const actual = simpleHash(JSON.stringify(registry));
+      const actual = sha256(JSON.stringify(registry));
       if (actual !== snap.checksum) {
         console.warn(`ConfigSnapshotManager: checksum mismatch for session "${sessionId}" (expected ${snap.checksum}, got ${actual})`);
       }

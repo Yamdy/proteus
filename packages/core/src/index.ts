@@ -180,3 +180,6 @@ export type {
   AttributionStore,
   AttributeFailureInput,
 } from "./failure-attribution.js";
+
+// --- Utilities ---
+export { sha256 } from "./utils/hash.js";
