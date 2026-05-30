@@ -2,12 +2,11 @@
 
 import type { Tool, ToolDefinition, ToolResult, TurnContext } from "@proteus/core";
 import type {
-  Transport,
+  ClientTransport,
   McpToolDefinition,
   McpToolCallResult,
   McpClientInfo,
   McpServerInfo,
-  JsonRpcRequest,
   JsonRpcResponse,
   StdioTransportOptions,
   SseTransportOptions,
@@ -24,7 +23,7 @@ export interface McpClientOptions {
 }
 
 export class McpClient {
-  private transport: Transport | null = null;
+  private transport: ClientTransport | null = null;
   private tools: Map<string, ToolDefinition> = new Map();
   private toolsDiscovered = false;
   private requestId = 0;
@@ -41,19 +40,18 @@ export class McpClient {
 
   /** Connect via stdio transport (local MCP server). */
   async connectStdio(options: StdioTransportOptions): Promise<void> {
-    const transport = new StdioTransport(options);
-    await this.initialize(transport);
+    await this.initialize(new StdioTransport(options));
   }
 
   /** Connect via SSE transport (remote MCP server). */
   async connectSse(options: SseTransportOptions): Promise<void> {
     const transport = new SseTransport(options);
-    await (transport as SseTransport).connect();
+    await transport.connect();
     await this.initialize(transport);
   }
 
-  /** Connect with an arbitrary transport. */
-  async connect(transport: Transport): Promise<void> {
+  /** Connect with an arbitrary ClientTransport. */
+  async connect(transport: ClientTransport): Promise<void> {
     await this.initialize(transport);
   }
 
@@ -61,7 +59,10 @@ export class McpClient {
   async disconnect(): Promise<void> {
     if (!this.transport) return;
     try {
-      await this.sendNotification(MCP_METHODS.SHUTDOWN);
+      await this.transport.sendNotification({
+        jsonrpc: "2.0",
+        method: MCP_METHODS.SHUTDOWN,
+      });
     } catch {
       // ignore shutdown errors
     }
@@ -95,7 +96,8 @@ export class McpClient {
 
   /**
    * Call a tool on the server with exponential backoff retry.
-   * Retries up to `maxRetries` times on transient failures.
+   * Retries up to `maxRetries` times on transient failures only.
+   * Application-level errors (JSON-RPC error responses) are never retried.
    */
   async callTool(name: string, params: Record<string, unknown>): Promise<ToolResult> {
     if (!this.transport) throw new Error("Not connected");
@@ -109,14 +111,16 @@ export class McpClient {
         });
 
         if (response.error) {
-          throw new Error(`MCP error ${response.error.code}: ${response.error.message}`);
+          // Application error — do not retry
+          throw new McpError(response.error.code, response.error.message);
         }
 
         return fromMcpToolCallResult(response.result as McpToolCallResult);
       } catch (err) {
+        if (err instanceof McpError) throw err; // application error, never retry
+
         lastError = err instanceof Error ? err : new Error(String(err));
 
-        // Don't retry on the last attempt
         if (attempt < this.maxRetries) {
           const delay = this.retryBaseDelayMs * Math.pow(2, attempt);
           await new Promise((resolve) => setTimeout(resolve, delay));
@@ -160,7 +164,7 @@ export class McpClient {
 
   // --- Private helpers ---
 
-  private async initialize(transport: Transport): Promise<void> {
+  private async initialize(transport: ClientTransport): Promise<void> {
     this.transport = transport;
     this.toolsDiscovered = false;
     this.tools.clear();
@@ -181,35 +185,26 @@ export class McpClient {
     this.serverInfo = (response.result as { serverInfo: McpServerInfo })?.serverInfo ?? null;
 
     // Send initialized notification
-    await this.sendNotification(MCP_METHODS.INITIALIZED);
+    await this.transport.sendNotification({
+      jsonrpc: "2.0",
+      method: MCP_METHODS.INITIALIZED,
+    });
   }
 
   private async sendRequest(method: string, params?: Record<string, unknown>): Promise<JsonRpcResponse> {
     if (!this.transport) throw new Error("Not connected");
-
     const id = ++this.requestId;
-    const request: JsonRpcRequest = {
-      jsonrpc: "2.0",
-      id,
-      method,
-      params,
-    };
-
-    // Check if transport has sendAndWait method (StdioTransport, SseTransport, or mock)
-    if ("sendAndWait" in this.transport && typeof (this.transport as any).sendAndWait === "function") {
-      return (this.transport as any).sendAndWait(request);
-    }
-
-    // Generic transport fallback
-    await this.transport.send(request);
-    return this.transport.receive();
+    return this.transport.sendRequest({ jsonrpc: "2.0", id, method, params });
   }
+}
 
-  private async sendNotification(method: string, params?: Record<string, unknown>): Promise<void> {
-    await this.transport!.send({
-      jsonrpc: "2.0",
-      method,
-      params,
-    });
+/** Application-level MCP error (JSON-RPC error response). Not retried. */
+export class McpError extends Error {
+  constructor(
+    public readonly code: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "McpError";
   }
 }

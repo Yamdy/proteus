@@ -94,9 +94,17 @@ export interface JsonSchema {
 
 // --- Transport types ---
 
-export interface Transport {
-  send(message: JsonRpcRequest | JsonRpcNotification): Promise<void>;
-  receive(): Promise<JsonRpcResponse>;
+/** Client-side transport — request/response semantics. */
+export interface ClientTransport {
+  sendRequest(request: JsonRpcRequest): Promise<JsonRpcResponse>;
+  sendNotification(notification: JsonRpcNotification): Promise<void>;
+  close(): Promise<void>;
+}
+
+/** Server-side transport — receive/process/send loop. */
+export interface ServerTransport {
+  receive(): Promise<JsonRpcRequest | JsonRpcNotification>;
+  send(response: JsonRpcResponse): Promise<void>;
   close(): Promise<void>;
 }
 

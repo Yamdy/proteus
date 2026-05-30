@@ -119,3 +119,40 @@ export interface SessionConfig {
   tools: Record<string, boolean>; // tool name → enabled
   logLevel: "debug" | "info" | "warn" | "error";
 }
+
+// --- Sandbox ---
+
+export interface SandboxOptions {
+  /** Maximum memory in megabytes available to the sandbox. */
+  memoryMb?: number;
+  /** Whether the sandbox is allowed to access the network. Defaults to true. */
+  networkAccess?: boolean;
+  /** Host-to-guest mount points. */
+  mounts?: SandboxMount[];
+}
+
+export interface SandboxMount {
+  /** Absolute path on the host filesystem. */
+  host: string;
+  /** Path inside the sandbox (relative to root). */
+  guest: string;
+  /** If true the guest path is read-only. */
+  readonly?: boolean;
+}
+
+export interface SandboxResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+export interface SandboxHandle {
+  /** Run a command inside the sandbox. */
+  execute(command: string, args?: string[]): Promise<SandboxResult>;
+  /** Read a file from the sandbox filesystem. */
+  readFile(path: string): Promise<string>;
+  /** Write a file into the sandbox filesystem. */
+  writeFile(path: string, content: string): Promise<void>;
+  /** Tear down the sandbox and release all resources. */
+  destroy(): Promise<void>;
+}

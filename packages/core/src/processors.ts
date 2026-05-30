@@ -1,7 +1,43 @@
-import type { HandlerContext } from "./context.js";
-import type { HandlerResult } from "./types.js";
+import type { HandlerContext, TurnContext } from "./context.js";
+import type { HandlerResult, LLMMessage, Tool, ToolResult } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
-import type { LLMMessage } from "./types.js";
+
+// --- KV-cache prefix stability ---
+
+export const CACHE_PREFIX_CHANGED_EVENT = "cache:prefix-changed";
+export const CACHE_BREAK_EVENT = "context:cache_break";
+
+export interface CachePrefixChangedPayload {
+  previousHash: string | null;
+  currentHash: string;
+  prefixMessages: LLMMessage[];
+}
+
+export interface CacheBreakPayload {
+  previousHash: string;
+  currentHash: string;
+  prefixMessages: LLMMessage[];
+}
+
+function simpleHash(data: string): string {
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    hash = ((hash << 5) - hash + char) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function computePrefixHash(messages: LLMMessage[]): string {
+  // Prefix = contiguous system messages at the start of the assembled list
+  const prefix: LLMMessage[] = [];
+  for (const m of messages) {
+    if (m.role !== "system") break;
+    prefix.push(m);
+  }
+  if (prefix.length === 0) return "";
+  return simpleHash(JSON.stringify(prefix));
+}
 
 // --- ContextAssemblyProcessor ---
 
@@ -14,21 +50,42 @@ export class ContextAssemblyProcessor {
   readonly name = "context_assembly";
   private readonly maxTokens: number;
   private readonly systemPrompt: string;
+  private _lastPrefixHash: string | null = null;
+  private _cachedSystemContent: string | null = null;
+  private _chainStarted = false;
 
   constructor(opts?: ContextAssemblyOptions) {
     this.maxTokens = opts?.maxTokens ?? 4000;
     this.systemPrompt = opts?.systemPrompt ?? "";
   }
 
+  /** Hash of the system-message prefix from the most recent handle() call. */
+  get lastPrefixHash(): string | null {
+    return this._lastPrefixHash;
+  }
+
+  /** Whether the system-message prefix is stable (unchanged since last handle()). */
+  get cacheStable(): boolean {
+    return this._lastPrefixHash !== null;
+  }
+
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
     const messages: LLMMessage[] = [];
 
-    // System prompt from fragments
-    const systemFragments = ctx.turn.promptFragments.filter((f) => f.role === "system");
-    if (systemFragments.length > 0) {
-      messages.push({ role: "system", content: systemFragments.map((f) => f.content).join("\n") });
-    } else if (this.systemPrompt) {
-      messages.push({ role: "system", content: this.systemPrompt });
+    // One-time injection: cache system content at chain start
+    if (!this._chainStarted) {
+      this._chainStarted = true;
+      const systemFragments = ctx.turn.promptFragments.filter((f) => f.role === "system");
+      if (systemFragments.length > 0) {
+        this._cachedSystemContent = systemFragments.map((f) => f.content).join("\n");
+      } else if (this.systemPrompt) {
+        this._cachedSystemContent = this.systemPrompt;
+      }
+    }
+
+    // Use cached system content — pinned at the front for KV-cache stability
+    if (this._cachedSystemContent) {
+      messages.push({ role: "system", content: this._cachedSystemContent });
     }
 
     // Working memory
@@ -42,10 +99,38 @@ export class ContextAssemblyProcessor {
       messages.push(...wmMessages);
     }
 
-    // User prompt fragments
+    // User prompt fragments — appended at the end
     const userFragments = ctx.turn.promptFragments.filter((f) => f.role === "user");
     for (const f of userFragments) {
       messages.push({ role: "user", content: f.content });
+    }
+
+    // KV-cache prefix stability detection
+    const currentHash = computePrefixHash(messages);
+    const previousHash = this._lastPrefixHash;
+    const prefixChanged = previousHash !== currentHash;
+
+    if (prefixChanged) {
+      this._lastPrefixHash = currentHash;
+      const prefixMessages = messages.filter((m) => m.role === "system");
+
+      // Emit cache:prefix-changed (backward-compatible)
+      const changedPayload: CachePrefixChangedPayload = {
+        previousHash,
+        currentHash,
+        prefixMessages,
+      };
+      void ctx.agent.handlerEngine.emit(CACHE_PREFIX_CHANGED_EVENT, changedPayload);
+
+      // Emit context:cache_break when a previously-stable cache is broken
+      if (previousHash !== null) {
+        const breakPayload: CacheBreakPayload = {
+          previousHash,
+          currentHash,
+          prefixMessages,
+        };
+        void ctx.agent.handlerEngine.emit(CACHE_BREAK_EVENT, breakPayload);
+      }
     }
 
     // Set assembled messages on turn context
@@ -143,10 +228,35 @@ export class ActionResolutionProcessor {
   }
 }
 
+// --- ExecutionEnvironment ---
+
+export interface ExecutionEnvironment {
+  execute(
+    tool: Tool,
+    params: Record<string, unknown>,
+    context: TurnContext,
+  ): Promise<ToolResult>;
+}
+
+export class LocalExecutionEnvironment implements ExecutionEnvironment {
+  async execute(
+    tool: Tool,
+    params: Record<string, unknown>,
+    context: TurnContext,
+  ): Promise<ToolResult> {
+    return tool.execute(params, context);
+  }
+}
+
 // --- ToolExecutionProcessor ---
 
 export class ToolExecutionProcessor {
   readonly name = "tool_execution";
+  private readonly executionEnv: ExecutionEnvironment;
+
+  constructor(executionEnv?: ExecutionEnvironment) {
+    this.executionEnv = executionEnv ?? new LocalExecutionEnvironment();
+  }
 
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
     const actions = ctx.turn.actions;
@@ -157,7 +267,7 @@ export class ToolExecutionProcessor {
       if (!tool) continue;
 
       try {
-        const result = await tool.execute(action.arguments, ctx.turn);
+        const result = await this.executionEnv.execute(tool, action.arguments, ctx.turn);
         ctx.turn.addToolResult(result);
       } catch (err) {
         ctx.turn.addToolResult({
@@ -204,13 +314,14 @@ export class ResultObservationProcessor {
 export interface RegisterProcessorsOptions extends ContextAssemblyOptions {
   onToken?: (token: string) => void;
   onThinking?: (token: string) => void;
+  executionEnv?: ExecutionEnvironment;
 }
 
 export function registerBuiltInProcessors(engine: HandlerEngine, opts?: RegisterProcessorsOptions): void {
   const contextAssembly = new ContextAssemblyProcessor(opts);
   const llmInference = new LLMInferenceProcessor({ onToken: opts?.onToken, onThinking: opts?.onThinking });
   const actionResolution = new ActionResolutionProcessor();
-  const toolExecution = new ToolExecutionProcessor();
+  const toolExecution = new ToolExecutionProcessor(opts?.executionEnv);
   const resultObservation = new ResultObservationProcessor();
 
   engine.register({

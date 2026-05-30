@@ -5,8 +5,10 @@ import {
   ActionResolutionProcessor,
   ToolExecutionProcessor,
   ResultObservationProcessor,
+  LocalExecutionEnvironment,
   registerBuiltInProcessors,
 } from "./processors.js";
+import type { ExecutionEnvironment } from "./processors.js";
 import { AgentContext, SessionContext, TurnContext, HandlerContext } from "./context.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { Harness } from "./harness.js";
@@ -219,6 +221,101 @@ describe("ToolExecutionProcessor", () => {
     expect(ctx.turn.toolResults[0]!.error).toBeDefined();
     expect(ctx.turn.toolResults[0]!.error!.message).toBe("Tool crashed");
     expect(ctx.turn.toolResults[0]!.error!.retryable).toBe(false);
+  });
+
+  it("defaults to LocalExecutionEnvironment when no executionEnv provided", () => {
+    const processor = new ToolExecutionProcessor();
+    // Verify it is usable (LocalExecutionEnvironment delegates to tool.execute)
+    expect(processor).toBeDefined();
+  });
+
+  it("uses injected ExecutionEnvironment instead of tool.execute()", async () => {
+    let envExecuted = false;
+    const tool: Tool = {
+      definition: { name: "search", description: "Search", parameters: {} },
+      execute: async () => ({ output: "from-tool" }),
+    };
+    const customEnv: ExecutionEnvironment = {
+      execute: async (_tool, params, _context) => {
+        envExecuted = true;
+        return { output: `from-env: ${params.query}` };
+      },
+    };
+    const tools = new Map([["search", tool]]);
+    const { ctx } = makeCtx({ tools });
+    (ctx.turn as any).actions = [{ id: "c1", name: "search", arguments: { query: "test" } }];
+
+    const processor = new ToolExecutionProcessor(customEnv);
+    const result = await processor.handle(withPhase(ctx, "tool_execution"));
+
+    expect((result as any).ok).toBe(true);
+    expect(envExecuted).toBe(true);
+    expect(ctx.turn.toolResults[0]!.output).toBe("from-env: test");
+  });
+
+  it("injects custom ExecutionEnvironment into registerBuiltInProcessors", async () => {
+    let envExecuted = false;
+    const customEnv: ExecutionEnvironment = {
+      execute: async () => {
+        envExecuted = true;
+        return { output: "custom-env-result" };
+      },
+    };
+
+    const tool: Tool = {
+      definition: { name: "echo", description: "Echo", parameters: {} },
+      execute: async () => ({ output: "original" }),
+    };
+    const tools = new Map([["echo", tool]]);
+
+    const llm = stubLLM({
+      chatStream: async function* () {
+        yield {
+          content: "",
+          toolCalls: [{ id: "c1", name: "echo", arguments: {} }],
+          usage: { promptTokens: 10, completionTokens: 5 },
+          finishReason: "tool_call" as const,
+        };
+      },
+    });
+
+    const engine = new HandlerEngine();
+    registerBuiltInProcessors(engine, { executionEnv: customEnv });
+
+    const store = new InMemoryCheckpointStore();
+    const harness = new Harness({ store });
+    const agent = new AgentContext({ llm, tools, handlerEngine: engine });
+    const session = new SessionContext(testConfig());
+
+    const result = await harness.runTurn(session, agent);
+    expect(result.status).toBe("completed");
+    expect(envExecuted).toBe(true);
+  });
+});
+
+describe("LocalExecutionEnvironment", () => {
+  it("delegates to tool.execute()", async () => {
+    const tool: Tool = {
+      definition: { name: "echo", description: "Echo", parameters: {} },
+      execute: async (params) => ({ output: `echo: ${params.msg}` }),
+    };
+    const { ctx } = makeCtx();
+    const env = new LocalExecutionEnvironment();
+
+    const result = await env.execute(tool, { msg: "hello" }, ctx.turn);
+
+    expect(result.output).toBe("echo: hello");
+  });
+
+  it("propagates errors from tool.execute()", async () => {
+    const tool: Tool = {
+      definition: { name: "fail", description: "Fails", parameters: {} },
+      execute: async () => { throw new Error("boom"); },
+    };
+    const { ctx } = makeCtx();
+    const env = new LocalExecutionEnvironment();
+
+    await expect(env.execute(tool, {}, ctx.turn)).rejects.toThrow("boom");
   });
 });
 

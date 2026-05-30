@@ -1,7 +1,8 @@
 // In-memory transport pair for testing — McpClient ↔ McpServer without network
 
 import type {
-  Transport,
+  ClientTransport,
+  ServerTransport,
   JsonRpcRequest,
   JsonRpcResponse,
   JsonRpcNotification,
@@ -12,8 +13,8 @@ import type {
  * Messages sent on one side are received on the other.
  */
 export function createTransportPair(): {
-  clientTransport: Transport;
-  serverTransport: Transport;
+  client: ClientTransport;
+  server: ServerTransport;
 } {
   const clientToServer: string[] = [];
   const serverToClient: string[] = [];
@@ -21,9 +22,26 @@ export function createTransportPair(): {
   let clientWaiter: ((msg: string) => void) | null = null;
   let serverWaiter: ((msg: string) => void) | null = null;
 
-  const clientTransport: Transport = {
-    async send(message: JsonRpcRequest | JsonRpcNotification) {
-      const data = JSON.stringify(message);
+  const client: ClientTransport = {
+    async sendRequest(request: JsonRpcRequest): Promise<JsonRpcResponse> {
+      // Put request in the server's queue
+      const data = JSON.stringify(request);
+      if (serverWaiter) {
+        const w = serverWaiter;
+        serverWaiter = null;
+        w(data);
+      } else {
+        clientToServer.push(data);
+      }
+
+      // Wait for the correlated response
+      return new Promise<JsonRpcResponse>((resolve) => {
+        clientWaiter = (data: string) => resolve(JSON.parse(data));
+      });
+    },
+
+    async sendNotification(notification: JsonRpcNotification): Promise<void> {
+      const data = JSON.stringify(notification);
       if (serverWaiter) {
         const w = serverWaiter;
         serverWaiter = null;
@@ -32,21 +50,23 @@ export function createTransportPair(): {
         clientToServer.push(data);
       }
     },
-    async receive(): Promise<JsonRpcResponse> {
-      if (serverToClient.length > 0) return JSON.parse(serverToClient.shift()!);
-      return new Promise<JsonRpcResponse>((resolve) => {
-        clientWaiter = (data: string) => resolve(JSON.parse(data));
-      });
-    },
+
     async close() {
       clientToServer.length = 0;
       serverToClient.length = 0;
     },
   };
 
-  const serverTransport: Transport = {
-    async send(message: JsonRpcRequest | JsonRpcNotification) {
-      const data = JSON.stringify(message);
+  const server: ServerTransport = {
+    async receive(): Promise<JsonRpcRequest | JsonRpcNotification> {
+      if (clientToServer.length > 0) return JSON.parse(clientToServer.shift()!);
+      return new Promise<JsonRpcRequest | JsonRpcNotification>((resolve) => {
+        serverWaiter = (data: string) => resolve(JSON.parse(data));
+      });
+    },
+
+    async send(response: JsonRpcResponse): Promise<void> {
+      const data = JSON.stringify(response);
       if (clientWaiter) {
         const w = clientWaiter;
         clientWaiter = null;
@@ -55,17 +75,12 @@ export function createTransportPair(): {
         serverToClient.push(data);
       }
     },
-    async receive(): Promise<JsonRpcResponse> {
-      if (clientToServer.length > 0) return JSON.parse(clientToServer.shift()!);
-      return new Promise<JsonRpcResponse>((resolve) => {
-        serverWaiter = (data: string) => resolve(JSON.parse(data));
-      });
-    },
+
     async close() {
       clientToServer.length = 0;
       serverToClient.length = 0;
     },
   };
 
-  return { clientTransport, serverTransport };
+  return { client, server };
 }

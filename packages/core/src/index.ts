@@ -14,6 +14,10 @@ export type {
   PhaseName,
   HandlerDefinition,
   SessionConfig,
+  SandboxHandle,
+  SandboxOptions,
+  SandboxMount,
+  SandboxResult,
 } from "./types.js";
 
 // --- Handler Engine ---
@@ -77,6 +81,14 @@ export type { SelfModifyToolOptions, SelfModifyParamsType } from "./self-modify.
 export { SessionManager } from "./session-manager.js";
 export type { SessionManagerOptions } from "./session-manager.js";
 
+// --- ExecutionEnvironment (shell + filesystem + sandbox) ---
+export type {
+  ExecutionEnvironment,
+  ExecOptions,
+  ExecResult,
+} from "./execution-env.js";
+export { LocalExecutionEnvironment } from "./local-execution-env.js";
+
 // --- Processors ---
 export {
   ContextAssemblyProcessor,
@@ -121,3 +133,50 @@ export type { ProteusSpan, ProteusTracer, ProteusMetric, OTelConfig } from "./ot
 export { OTelAdapter, createOTelAdapter } from "./otel-adapter.js";
 export { NoopTracer, NoopMetric } from "./noop-tracer.js";
 export { OTelBridgeHandler, createOTelBridgeHandlers, registerOTelBridge } from "./otel-bridge.js";
+
+// --- Governance / Audit Log ---
+export {
+  GovernanceHandler,
+  createGovernanceHandlers,
+  registerGovernance,
+  AllowAllPolicy,
+  DenyListPolicy,
+  GovernanceManager,
+  GovernanceHooks,
+} from "./governance.js";
+export type {
+  AuditEntry,
+  PermissionDecision,
+  PermissionPolicy,
+  ResponseDecision,
+  ResponsePolicy,
+  GovernanceManagerOptions,
+  BeforeLlmHook,
+} from "./governance.js";
+
+// --- Evaluation ---
+export { EvaluationHarness } from "./evaluation.js";
+export type {
+  EvalSuite,
+  EvalTask,
+  EvalGrader,
+  GradeResult,
+  EvalReport,
+  EvalTaskResult,
+  EvaluationHarnessOptions,
+  RunSuiteOptions,
+} from "./evaluation.js";
+
+// --- Graders ---
+export { ExactMatchGrader, ContainsGrader, LLMJudgeGrader } from "./grader.js";
+export type { StringGrader, ExactMatchOptions, LLMJudgeOptions } from "./grader.js";
+
+// --- Failure Attribution ---
+export { ETCLOVGLayer, InMemoryAttributionStore, attributeFailure } from "./failure-attribution.js";
+export type {
+  AttributionCategory,
+  AttributionRecord,
+  AttributionFilter,
+  AttributionStore,
+  AttributeFailureInput,
+} from "./failure-attribution.js";
