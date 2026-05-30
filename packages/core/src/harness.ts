@@ -56,26 +56,20 @@ export class Harness {
     return this.executePhases(ctx, turnId, session.sessionId, agent);
   }
 
-  async resume(sessionId: string, agent: AgentContext, externalInput?: unknown): Promise<TurnResult> {
-    const checkpoint = this.store.loadLatestCheckpoint(sessionId);
+  async resume(session: SessionContext, agent: AgentContext, externalInput?: unknown): Promise<TurnResult> {
+    const checkpoint = this.store.loadLatestCheckpoint(session.sessionId);
     if (!checkpoint || checkpoint.resumeReason !== "suspend") {
-      throw new Error(`No suspend checkpoint found for session "${sessionId}"`);
+      throw new Error(`No suspend checkpoint found for session "${session.sessionId}"`);
     }
 
     this.lifecycle.transition("resume");
 
     const turnId = `turn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const session = new SessionContext({
-      sessionId,
-      llm: { provider: "unknown", model: "unknown", temperature: 0 },
-      tools: {},
-      logLevel: "info",
-    });
     const turn = new TurnContext({ turnId, agent, session });
     turn.externalInput = externalInput;
     const ctx = new HandlerContextClass({ agent, session, turn });
 
-    return this.executePhases(ctx, turnId, sessionId, agent);
+    return this.executePhases(ctx, turnId, session.sessionId, agent);
   }
 
   async runChain(session: SessionContext, agent: AgentContext, opts?: ChainOptions): Promise<ChainResult> {
@@ -113,61 +107,53 @@ export class Harness {
     return { status: "max_turns", turns: maxTurns };
   }
 
-  async resumeChain(sessionId: string, agent: AgentContext, externalInput?: unknown, opts?: ChainOptions): Promise<ChainResult> {
+  async resumeChain(session: SessionContext, agent: AgentContext, externalInput?: unknown, opts?: ChainOptions): Promise<ChainResult> {
     const maxTurns = opts?.maxTurns ?? 10;
     const abortSignal = opts?.abortSignal;
     const chainId = `chain_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const engine = agent.handlerEngine;
 
-    await engine.emit("chain:start", { chainId, sessionId });
+    await engine.emit("chain:start", { chainId, sessionId: session.sessionId });
 
-    const resumeResult = await this.resume(sessionId, agent, externalInput);
+    const resumeResult = await this.resume(session, agent, externalInput);
 
     if (resumeResult.status === "suspended") {
-      await engine.emit("chain:end", { chainId, sessionId, status: "suspended", turns: 1 });
+      await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "suspended", turns: 1 });
       return { status: "suspended", turns: 1 };
     }
     if (resumeResult.status === "aborted") {
-      await engine.emit("chain:end", { chainId, sessionId, status: "aborted", turns: 1 });
+      await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "aborted", turns: 1 });
       return { status: "aborted", turns: 1 };
     }
     if (resumeResult.status === "errored") {
-      await engine.emit("chain:end", { chainId, sessionId, status: "errored", turns: 1 });
+      await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "errored", turns: 1 });
       return { status: "errored", turns: 1, error: resumeResult.error };
     }
-
-    // Reconstruct session for subsequent turns
-    const session = new SessionContext({
-      sessionId,
-      llm: { provider: "unknown", model: "unknown", temperature: 0 },
-      tools: {},
-      logLevel: "info",
-    });
 
     // Resume turn completed — continue chain for remaining turns
     for (let i = 1; i < maxTurns; i++) {
       if (abortSignal?.aborted) {
-        await engine.emit("chain:end", { chainId, sessionId, status: "aborted", turns: i });
+        await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "aborted", turns: i });
         return { status: "aborted", turns: i };
       }
 
       const result = await this.runTurn(session, agent);
 
       if (result.status === "suspended") {
-        await engine.emit("chain:end", { chainId, sessionId, status: "suspended", turns: i + 1 });
+        await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "suspended", turns: i + 1 });
         return { status: "suspended", turns: i + 1 };
       }
       if (result.status === "aborted") {
-        await engine.emit("chain:end", { chainId, sessionId, status: "aborted", turns: i + 1 });
+        await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "aborted", turns: i + 1 });
         return { status: "aborted", turns: i + 1 };
       }
       if (result.status === "errored") {
-        await engine.emit("chain:end", { chainId, sessionId, status: "errored", turns: i + 1 });
+        await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "errored", turns: i + 1 });
         return { status: "errored", turns: i + 1, error: result.error };
       }
     }
 
-    await engine.emit("chain:end", { chainId, sessionId, status: "completed", turns: maxTurns });
+    await engine.emit("chain:end", { chainId, sessionId: session.sessionId, status: "completed", turns: maxTurns });
     return { status: "completed", turns: maxTurns };
   }
 
