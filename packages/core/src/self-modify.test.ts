@@ -4,10 +4,10 @@ import { HandlerEngine } from "./handler-engine.js";
 import { ConfigSnapshotManager } from "./config-snapshot-manager.js";
 import { InMemoryCheckpointStore } from "./checkpoint-store.js";
 import type { HandlerFn } from "./types.js";
-import type { TurnContext } from "./index.js";
+import type { ToolContext } from "./index.js";
 
-function makeContext(): TurnContext {
-  return {} as TurnContext;
+function makeContext(): ToolContext {
+  return { turnId: "test-turn", sessionId: "test-session" };
 }
 
 describe("SelfModifyTool", () => {

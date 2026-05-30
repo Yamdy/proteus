@@ -2,6 +2,7 @@
 
 export type {
   TurnContext,
+  ToolContext,
   PromptFragment,
   Tool,
   ToolDefinition,

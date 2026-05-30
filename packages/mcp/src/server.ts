@@ -1,6 +1,6 @@
 // McpServer — expose ToolRegistry as an MCP server
 
-import type { Tool, ToolRegistry, ToolResult, TurnContext } from "@proteus/core";
+import type { Tool, ToolRegistry, ToolResult, ToolContext } from "@proteus/core";
 import type {
   McpServerInfo,
   McpToolDefinition,
@@ -189,10 +189,11 @@ export class McpServer {
     }
 
     try {
-      // Create a minimal TurnContext for tool execution
-      // In a real integration, this would come from the HandlerEngine
-      const mockContext = {} as TurnContext;
-      const result: ToolResult = await tool.execute(params.arguments ?? {}, mockContext);
+      const toolContext: ToolContext = {
+        turnId: crypto.randomUUID(),
+        sessionId: "mcp",
+      };
+      const result: ToolResult = await tool.execute(params.arguments ?? {}, toolContext);
       const mcpResult: McpToolCallResult = toMcpToolCallResult(result);
 
       return {

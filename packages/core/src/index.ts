@@ -7,6 +7,7 @@ export type {
   ToolResult,
   Artifact,
   Tool,
+  ToolContext,
   LLMMessage,
   ToolCall,
   LLMResponse,

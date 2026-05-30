@@ -1,6 +1,6 @@
 // McpClient — connect to MCP server, discover tools, forward calls
 
-import type { Tool, ToolDefinition, ToolResult, TurnContext } from "@proteus/core";
+import type { Tool, ToolDefinition, ToolResult, ToolContext } from "@proteus/core";
 import type {
   ClientTransport,
   McpToolDefinition,
@@ -138,7 +138,7 @@ export class McpClient {
 
     return {
       definition: def,
-      execute: async (params: Record<string, unknown>, _ctx: TurnContext) => {
+      execute: async (params: Record<string, unknown>, _ctx: ToolContext) => {
         return this.callTool(name, params);
       },
     };

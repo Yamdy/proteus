@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { z } from "zod";
 import { ToolRegistry } from "./tool-registry.js";
-import type { Tool, ToolDefinition, TurnContext } from "./index.js";
+import type { Tool, ToolDefinition, ToolContext } from "./index.js";
 
 function makeTool(overrides?: Partial<ToolDefinition>): Tool {
   const def: ToolDefinition = {
@@ -101,7 +101,7 @@ describe("ToolRegistry", () => {
       const zodSchema = z.object({ a: z.number(), b: z.number() });
       registry.register(tool, zodSchema);
 
-      const result = await registry.execute("add", { a: 2, b: 3 }, {} as TurnContext);
+      const result = await registry.execute("add", { a: 2, b: 3 }, { turnId: "test-turn", sessionId: "test-session" } as ToolContext);
       expect(receivedParams).toEqual({ a: 2, b: 3 });
       expect(result.output).toBe(2);
     });
@@ -112,7 +112,7 @@ describe("ToolRegistry", () => {
       registry.register(tool, zodSchema);
 
       await expect(
-        registry.execute("search", { query: 123 }, {} as TurnContext),
+        registry.execute("search", { query: 123 }, { turnId: "test-turn", sessionId: "test-session" } as ToolContext),
       ).rejects.toThrow(/validation/i);
     });
 
@@ -122,7 +122,7 @@ describe("ToolRegistry", () => {
       registry.register(tool, zodSchema);
 
       await expect(
-        registry.execute("search", {}, {} as TurnContext),
+        registry.execute("search", {}, { turnId: "test-turn", sessionId: "test-session" } as ToolContext),
       ).rejects.toThrow(/validation/i);
     });
 
@@ -133,7 +133,7 @@ describe("ToolRegistry", () => {
       };
       registry.register(tool);
 
-      const result = await registry.execute("raw", { anything: true }, {} as TurnContext);
+      const result = await registry.execute("raw", { anything: true }, { turnId: "test-turn", sessionId: "test-session" } as ToolContext);
       expect(result.output).toEqual({ anything: true });
     });
   });
@@ -141,7 +141,7 @@ describe("ToolRegistry", () => {
   describe("error cases", () => {
     it("throws descriptive error for unknown tool name on execute", async () => {
       await expect(
-        registry.execute("nonexistent", {}, {} as TurnContext),
+        registry.execute("nonexistent", {}, { turnId: "test-turn", sessionId: "test-session" } as ToolContext),
       ).rejects.toThrow(/nonexistent.*not found/i);
     });
 

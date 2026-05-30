@@ -1,7 +1,7 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { z } from "zod";
 import type { Tool, ToolDefinition, ToolResult } from "./types.js";
-import type { TurnContext } from "./context.js";
+import type { ToolContext } from "./types.js";
 
 interface RegisteredTool {
   tool: Tool;
@@ -49,7 +49,7 @@ export class ToolRegistry {
     return defs;
   }
 
-  async execute(name: string, params: Record<string, unknown>, context: TurnContext): Promise<ToolResult> {
+  async execute(name: string, params: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
     const entry = this.tools.get(name);
     if (!entry) {
       throw new Error(`Tool "${name}" not found in registry`);
