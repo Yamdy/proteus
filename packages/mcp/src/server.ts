@@ -8,7 +8,7 @@ import type {
   JsonRpcRequest,
   JsonRpcResponse,
   JsonRpcNotification,
-  ServerTransport,
+  Transport,
 } from "./types.js";
 import { MCP_METHODS } from "./types.js";
 import { toMcpTool, toMcpToolCallResult } from "./adapter.js";
@@ -63,17 +63,17 @@ export class McpServer {
   }
 
   /**
-   * Serve on a ServerTransport — read requests, process, write responses.
+   * Serve on a transport — read requests, process, write responses.
    * Resolves when the transport is closed or an error occurs.
    */
-  async serve(transport: ServerTransport): Promise<void> {
+  async serve(transport: Transport): Promise<void> {
     this.running = true;
     while (this.running) {
       try {
         const message = await transport.receive();
         const response = await this.handleMessage(message as JsonRpcRequest | JsonRpcNotification);
         if (response) {
-          await transport.send(response);
+          await transport.send(response as JsonRpcRequest);
         }
       } catch {
         break; // transport closed or error

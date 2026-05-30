@@ -1,8 +1,7 @@
 // In-memory transport pair for testing — McpClient ↔ McpServer without network
 
 import type {
-  ClientTransport,
-  ServerTransport,
+  Transport,
   JsonRpcRequest,
   JsonRpcResponse,
   JsonRpcNotification,
@@ -13,8 +12,8 @@ import type {
  * Messages sent on one side are received on the other.
  */
 export function createTransportPair(): {
-  client: ClientTransport;
-  server: ServerTransport;
+  clientTransport: Transport;
+  serverTransport: Transport;
 } {
   const clientToServer: string[] = [];
   const serverToClient: string[] = [];
@@ -22,10 +21,9 @@ export function createTransportPair(): {
   let clientWaiter: ((msg: string) => void) | null = null;
   let serverWaiter: ((msg: string) => void) | null = null;
 
-  const client: ClientTransport = {
-    async sendRequest(request: JsonRpcRequest): Promise<JsonRpcResponse> {
-      // Put request in the server's queue
-      const data = JSON.stringify(request);
+  const clientTransport: Transport = {
+    async send(message: JsonRpcRequest | JsonRpcNotification) {
+      const data = JSON.stringify(message);
       if (serverWaiter) {
         const w = serverWaiter;
         serverWaiter = null;
@@ -33,40 +31,22 @@ export function createTransportPair(): {
       } else {
         clientToServer.push(data);
       }
-
-      // Wait for the correlated response
+    },
+    async receive(): Promise<JsonRpcResponse> {
+      if (serverToClient.length > 0) return JSON.parse(serverToClient.shift()!);
       return new Promise<JsonRpcResponse>((resolve) => {
         clientWaiter = (data: string) => resolve(JSON.parse(data));
       });
     },
-
-    async sendNotification(notification: JsonRpcNotification): Promise<void> {
-      const data = JSON.stringify(notification);
-      if (serverWaiter) {
-        const w = serverWaiter;
-        serverWaiter = null;
-        w(data);
-      } else {
-        clientToServer.push(data);
-      }
-    },
-
     async close() {
       clientToServer.length = 0;
       serverToClient.length = 0;
     },
   };
 
-  const server: ServerTransport = {
-    async receive(): Promise<JsonRpcRequest | JsonRpcNotification> {
-      if (clientToServer.length > 0) return JSON.parse(clientToServer.shift()!);
-      return new Promise<JsonRpcRequest | JsonRpcNotification>((resolve) => {
-        serverWaiter = (data: string) => resolve(JSON.parse(data));
-      });
-    },
-
-    async send(response: JsonRpcResponse): Promise<void> {
-      const data = JSON.stringify(response);
+  const serverTransport: Transport = {
+    async send(message: JsonRpcRequest | JsonRpcNotification) {
+      const data = JSON.stringify(message);
       if (clientWaiter) {
         const w = clientWaiter;
         clientWaiter = null;
@@ -75,12 +55,17 @@ export function createTransportPair(): {
         serverToClient.push(data);
       }
     },
-
+    async receive(): Promise<JsonRpcResponse> {
+      if (clientToServer.length > 0) return JSON.parse(clientToServer.shift()!);
+      return new Promise<JsonRpcResponse>((resolve) => {
+        serverWaiter = (data: string) => resolve(JSON.parse(data));
+      });
+    },
     async close() {
       clientToServer.length = 0;
       serverToClient.length = 0;
     },
   };
 
-  return { client, server };
+  return { clientTransport, serverTransport };
 }
