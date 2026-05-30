@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+
 import { useSelfModifyStore, type SelfModifyEntry } from "../../stores/selfModifyStore";
 
 const store = useSelfModifyStore();

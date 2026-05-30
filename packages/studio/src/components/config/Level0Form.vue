@@ -3,7 +3,7 @@ import { ref, reactive, watch, computed } from "vue";
 import type { Level0FormData } from "../../composables/useConfig";
 import { useConfig } from "../../composables/useConfig";
 
-const { AVAILABLE_MODELS, AVAILABLE_TOOLS, LOG_LEVELS, defaults } =
+const { AVAILABLE_MODELS, AVAILABLE_TOOLS, LOG_LEVELS } =
   useConfig();
 
 const props = defineProps<{

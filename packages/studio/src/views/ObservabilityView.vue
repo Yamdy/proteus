@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useObservabilityStore } from "../stores/observabilityStore";
+import { useTraces } from "../composables/useTraces";
 import OTelFrame from "../components/observability/OTelFrame.vue";
 import OTelConfigPanel from "../components/observability/OTelConfigPanel.vue";
+import PhaseTimeline from "../components/observability/PhaseTimeline.vue";
 
 const obsStore = useObservabilityStore();
+const { fetchTraces } = useTraces();
 const showSettings = ref(false);
-const viewMode = ref<"otel" | "traces">("otel");
+const viewMode = ref<"otel" | "traces" | "timeline">("otel");
 
 onMounted(() => {
-  obsStore.fetchTraces();
+  fetchTraces();
 });
 
 function onSettingsSaved() {
@@ -43,6 +46,17 @@ function onSettingsSaved() {
         "
       >
         Traces
+      </button>
+      <button
+        @click="viewMode = 'timeline'"
+        class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+        :class="
+          viewMode === 'timeline'
+            ? 'bg-gray-800 text-gray-200'
+            : 'text-gray-500 hover:text-gray-300'
+        "
+      >
+        Timeline
       </button>
 
       <div class="ml-auto flex items-center gap-2">
@@ -80,8 +94,8 @@ function onSettingsSaved() {
 
         <!-- Refresh (visible in traces mode) -->
         <button
-          v-if="viewMode === 'traces'"
-          @click="obsStore.fetchTraces()"
+          v-if="viewMode === 'traces' || viewMode === 'timeline'"
+          @click="fetchTraces()"
           :disabled="obsStore.loading"
           class="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 border border-gray-700 disabled:opacity-50 transition-colors"
         >
@@ -127,7 +141,7 @@ function onSettingsSaved() {
         </template>
 
         <!-- Native traces mode -->
-        <template v-else>
+        <template v-else-if="viewMode === 'traces'">
           <div class="flex-1 overflow-y-auto px-6 py-6">
             <div class="mb-4 flex items-center gap-3">
               <span v-if="obsStore.loading" class="text-xs text-gray-500 flex items-center gap-1.5">
@@ -214,6 +228,71 @@ function onSettingsSaved() {
                     <span class="text-gray-400">{{ trace.tokenUsage.input }} in</span>
                     <span class="text-gray-400">{{ trace.tokenUsage.output }} out</span>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Timeline mode -->
+        <template v-else-if="viewMode === 'timeline'">
+          <div class="flex-1 overflow-y-auto px-6 py-6">
+            <div class="mb-4 flex items-center gap-3">
+              <span v-if="obsStore.loading" class="text-xs text-gray-500 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Loading traces...
+              </span>
+            </div>
+
+            <div v-if="obsStore.error" class="rounded-lg bg-red-900/20 border border-red-800/40 px-4 py-3 text-sm text-red-300 mb-6">
+              {{ obsStore.error }}
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="obsStore.recentTraces.length === 0 && !obsStore.loading" class="rounded-lg border border-gray-800 bg-gray-900/50 px-6 py-12 text-center">
+              <div class="w-10 h-10 mx-auto mb-3 rounded-lg bg-gray-800 flex items-center justify-center">
+                <svg class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                </svg>
+              </div>
+              <p class="text-sm text-gray-400">No traces to display</p>
+              <p class="text-xs text-gray-600 mt-1">Phase timelines appear as the agent processes requests</p>
+            </div>
+
+            <!-- Timeline cards -->
+            <div v-else class="space-y-5">
+              <div
+                v-for="trace in obsStore.recentTraces"
+                :key="trace.id"
+                class="rounded-lg border border-gray-800 bg-gray-900/50 overflow-hidden transition-colors hover:border-gray-700"
+                :class="obsStore.selectedTraceId === trace.id ? 'border-blue-500/40 ring-1 ring-blue-500/20' : ''"
+              >
+                <!-- Trace header -->
+                <div
+                  class="px-5 py-3 flex items-center gap-4 cursor-pointer"
+                  @click="obsStore.selectTrace(trace.id)"
+                >
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-mono text-gray-300 truncate">{{ trace.id.slice(0, 8) }}</span>
+                      <span class="text-xs text-gray-600">session {{ trace.sessionId.slice(0, 8) }}</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-4 text-xs text-gray-500">
+                    <span v-if="trace.model" class="font-mono">{{ trace.model }}</span>
+                    <span>{{ trace.startedAt ? new Date(trace.startedAt).toLocaleTimeString() : "--" }}</span>
+                    <span class="font-mono text-gray-400">
+                      {{ trace.totalDurationMs !== undefined ? (trace.totalDurationMs < 1000 ? trace.totalDurationMs + "ms" : (trace.totalDurationMs / 1000).toFixed(1) + "s") : "--" }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- PhaseTimeline -->
+                <div class="px-5 pb-4">
+                  <PhaseTimeline :trace="trace" />
                 </div>
               </div>
             </div>
