@@ -7,6 +7,7 @@ export type {
   ToolResult,
   Artifact,
   Tool,
+  ToolContext,
   LLMMessage,
   ToolCall,
   LLMResponse,
@@ -183,3 +184,13 @@ export type {
 
 // --- Utilities ---
 export { sha256 } from "./utils/hash.js";
+
+// --- Zod Schemas ---
+export { HandlerResultSchema } from "./schemas/index.js";
+export type { InferredHandlerResult } from "./schemas/index.js";
+export { SessionConfigSchema, SessionLLMConfigSchema } from "./schemas/index.js";
+export type { SessionConfigInferred, SessionLLMConfig } from "./schemas/index.js";
+export { ToolDefinitionSchema, ToolResultSchema, ArtifactSchema } from "./schemas/index.js";
+export type { InferredToolDefinition, InferredToolResult, InferredArtifact } from "./schemas/index.js";
+export { SchemaRegistry, createSchemaRegistry } from "./schemas/index.js";
+export type { ValidationResult } from "./schemas/index.js";

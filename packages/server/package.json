@@ -15,18 +15,23 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@proteus/core": "workspace:*",
-    "fastify": "^5.2.0",
-    "@fastify/websocket": "^11.0.0",
     "@fastify/cors": "^10.0.0",
-    "better-sqlite3": "^11.0.0"
+    "@fastify/websocket": "^11.0.0",
+    "@proteus/core": "workspace:*",
+    "better-sqlite3": "^11.0.0",
+    "fastify": "^5.2.0"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
+    "@types/ws": "^8.18.1",
     "typescript": "^5.7.3",
-    "vitest": "^3.1.0"
+    "vitest": "^3.1.0",
+    "ws": "^8.21.0"
   }
 }

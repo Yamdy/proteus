@@ -1,5 +1,10 @@
 // @proteus/sdk — embeddable language API
 
+// --- SDK class + options ---
+export { ProteusSDK } from "./sdk.js";
+export type { SDKOptions } from "./sdk.js";
+
+// --- Re-exported types from @proteus/core ---
 export type {
   TurnContext,
   PromptFragment,
@@ -37,8 +42,3 @@ export type {
   Harness,
   TurnResult,
 } from "@proteus/core";
-
-// SDK entry point — will be implemented
-export class ProteusSDK {
-  // placeholder
-}

@@ -30,7 +30,10 @@ export type {
   TurnResult,
 } from "@proteus/core";
 
-// Server entry point — will be implemented
-export class ProteusServer {
-  // placeholder
-}
+// Server implementation
+export { ProteusServer, createServer } from "./server.js";
+export type { ServerOptions } from "./server.js";
+
+// Route registration
+export { registerMetricsRoutes } from "./routes/metrics.js";
+export type { MetricsRoutesOptions } from "./routes/metrics.js";
