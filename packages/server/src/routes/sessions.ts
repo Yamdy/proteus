@@ -23,8 +23,8 @@ interface SessionView {
 function toSessionView(sessionId: string, config: SessionConfig): SessionView {
   return {
     id: sessionId,
-    name: (config as any).name ?? sessionId,
-    createdAt: (config as any).createdAt ?? Date.now(),
+    name: config.name ?? sessionId,
+    createdAt: config.createdAt ?? Date.now(),
   };
 }
 
@@ -82,11 +82,10 @@ export async function sessionRoutes(
       const ids = sessionManager.list();
       const sessions: SessionView[] = ids.map((id) => {
         const session = sessionManager.get(id);
-        const cfg = session?.config as any;
-        return {
+          return {
           id,
-          name: cfg?.name ?? id,
-          createdAt: cfg?.createdAt ?? Date.now(),
+          name: session?.config.name ?? id,
+          createdAt: session?.config.createdAt ?? Date.now(),
         };
       });
       return reply.send(sessions);
@@ -107,11 +106,10 @@ export async function sessionRoutes(
         });
       }
 
-      const cfg = session.config as unknown as Record<string, unknown>;
       return reply.send({
         id,
-        name: (cfg.name as string) ?? id,
-        createdAt: (cfg.createdAt as number) ?? Date.now(),
+        name: session.config.name ?? id,
+        createdAt: session.config.createdAt ?? Date.now(),
       });
     },
   );

@@ -75,12 +75,6 @@ interface ClientMessage {
   channels?: string[];
 }
 
-interface ServerPush {
-  type: string;
-  data?: unknown;
-  timestamp: number;
-}
-
 // --- Route registration ---
 
 export interface WsRoutesOptions {

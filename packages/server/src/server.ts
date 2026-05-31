@@ -30,7 +30,6 @@ import { registerMetricsRoutes } from "./routes/metrics.js";
 import { registerStatusRoutes, type StatusRouteDeps } from "./routes/status.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerWsRoutes, EventBus } from "./routes/ws.js";
-import { registerSseRoutes } from "./routes/sse.js";
 import { registerSelfModifyRoutes } from "./routes/self-modify.js";
 
 export interface ServerOptions {
@@ -136,15 +135,6 @@ export class ProteusServer {
       if (this._agent) {
         api.register(
           (app) => registerChatRoutes(app, {
-            sessionManager: this._sessionManager,
-            harness: this._harness,
-            agent: this._agent!,
-          }),
-          { prefix: "/chat" },
-        );
-        // SSE streaming
-        api.register(
-          (app) => registerSseRoutes(app, {
             sessionManager: this._sessionManager,
             harness: this._harness,
             agent: this._agent!,
