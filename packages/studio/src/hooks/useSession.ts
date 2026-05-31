@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useSessionStore, type Session } from "../stores/sessionStore";
+import { apiFetch } from "../lib/api";
 
 const API_BASE = "/api/sessions";
 
@@ -13,34 +14,45 @@ export function useSession() {
     setCurrentSession,
   } = useSessionStore();
 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const fetchSessions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(API_BASE);
-      if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.status}`);
-      const data: Session[] = await res.json();
+      const data = await apiFetch<Session[]>(API_BASE);
       setSessions(data);
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
       console.error("fetchSessions error:", err);
+      setError(msg);
       throw err;
+    } finally {
+      setLoading(false);
     }
   }, [setSessions]);
 
   const createSession = useCallback(
     async (name?: string) => {
+      setLoading(true);
+      setError(null);
       try {
-        const res = await fetch(API_BASE, {
+        const session = await apiFetch<Session>(API_BASE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
         });
-        if (!res.ok) throw new Error(`Failed to create session: ${res.status}`);
-        const session: Session = await res.json();
         addSession(session);
         setCurrentSession(session);
         return session;
-      } catch (err) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("createSession error:", err);
+        setError(msg);
         throw err;
+      } finally {
+        setLoading(false);
       }
     },
     [addSession, setCurrentSession],
@@ -48,13 +60,18 @@ export function useSession() {
 
   const deleteSession = useCallback(
     async (id: string) => {
+      setLoading(true);
+      setError(null);
       try {
-        const res = await fetch(`${API_BASE}/${id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error(`Failed to delete session: ${res.status}`);
+        await apiFetch(`${API_BASE}/${id}`, { method: "DELETE" });
         removeSession(id);
-      } catch (err) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("deleteSession error:", err);
+        setError(msg);
         throw err;
+      } finally {
+        setLoading(false);
       }
     },
     [removeSession],
@@ -63,6 +80,8 @@ export function useSession() {
   return {
     sessions,
     currentSession,
+    loading,
+    error,
     fetchSessions,
     createSession,
     deleteSession,

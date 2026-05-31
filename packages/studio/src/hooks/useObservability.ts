@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../lib/api";
+import { useConnectionStore } from "../stores/connectionStore";
 
 const API_BASE_TRACES = "/api/traces";
 const API_BASE_METRICS = "/api/metrics";
@@ -117,6 +119,9 @@ interface UseObservabilityReturn {
   toolCalls: ToolCallMetric[];
   phaseEvents: PhaseEvent[];
   loading: boolean;
+  loadingTraces: boolean;
+  loadingMetrics: boolean;
+  loadingCosts: boolean;
   error: string | null;
   wsConnected: boolean;
   fetchTraces: (params?: { sessionId?: string; limit?: number }) => Promise<void>;
@@ -134,9 +139,13 @@ export function useObservability(): UseObservabilityReturn {
   const [costs, setCosts] = useState<CostSummary | null>(null);
   const [toolCalls, setToolCalls] = useState<ToolCallMetric[]>([]);
   const [phaseEvents, setPhaseEvents] = useState<PhaseEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingTraces, setLoadingTraces] = useState(false);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
+  const [loadingCosts, setLoadingCosts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+
+  const loading = loadingTraces || loadingMetrics || loadingCosts;
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -145,7 +154,7 @@ export function useObservability(): UseObservabilityReturn {
 
   const fetchTraces = useCallback(
     async (params?: { sessionId?: string; limit?: number }) => {
-      setLoading(true);
+      setLoadingTraces(true);
       setError(null);
       try {
         // Server route is GET /api/traces/:sessionId
@@ -167,30 +176,28 @@ export function useObservability(): UseObservabilityReturn {
         const msg = err instanceof Error ? err.message : "Unknown error";
         setError(msg);
       } finally {
-        setLoading(false);
+        setLoadingTraces(false);
       }
     },
     [],
   );
 
   const fetchMetrics = useCallback(async () => {
-    setLoading(true);
+    setLoadingMetrics(true);
     setError(null);
     try {
-      const res = await fetch(API_BASE_METRICS);
-      if (!res.ok) throw new Error(`Failed to fetch metrics: ${res.status}`);
-      const data: MetricsSnapshot = await res.json();
+      const data = await apiFetch<MetricsSnapshot>(API_BASE_METRICS);
       setMetrics(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(msg);
     } finally {
-      setLoading(false);
+      setLoadingMetrics(false);
     }
   }, []);
 
   const fetchCosts = useCallback(async (params?: { sessionId?: string }) => {
-    setLoading(true);
+    setLoadingCosts(true);
     setError(null);
     try {
       // Server route: GET /api/costs or GET /api/costs/:sessionId
@@ -198,15 +205,13 @@ export function useObservability(): UseObservabilityReturn {
         ? `${API_BASE_COSTS}/${params.sessionId}`
         : API_BASE_COSTS;
 
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Failed to fetch costs: ${res.status}`);
-      const data: CostSummary = await res.json();
+      const data = await apiFetch<CostSummary>(url);
       setCosts(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(msg);
     } finally {
-      setLoading(false);
+      setLoadingCosts(false);
     }
   }, []);
 
@@ -240,6 +245,7 @@ export function useObservability(): UseObservabilityReturn {
 
     ws.onopen = () => {
       setWsConnected(true);
+      useConnectionStore.getState().connect();
       // Subscribe to phase events
       ws.send(JSON.stringify({ type: "subscribe", channels: ["phase", "self_modify"] }));
     };
@@ -264,6 +270,7 @@ export function useObservability(): UseObservabilityReturn {
 
     ws.onclose = () => {
       setWsConnected(false);
+      useConnectionStore.getState().disconnect();
       wsRef.current = null;
       // Auto-reconnect after 3 seconds
       reconnectTimerRef.current = setTimeout(() => {
@@ -286,6 +293,7 @@ export function useObservability(): UseObservabilityReturn {
       wsRef.current = null;
     }
     setWsConnected(false);
+    useConnectionStore.getState().disconnect();
   }, []);
 
   const clearPhaseEvents = useCallback(() => {
@@ -306,6 +314,9 @@ export function useObservability(): UseObservabilityReturn {
     toolCalls,
     phaseEvents,
     loading,
+    loadingTraces,
+    loadingMetrics,
+    loadingCosts,
     error,
     wsConnected,
     fetchTraces,

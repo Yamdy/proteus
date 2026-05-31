@@ -15,7 +15,6 @@ export function useChat() {
     addMessage,
     appendToMessage,
     setMessageStreaming,
-    getMessages,
   } = useSessionStore();
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -66,10 +65,6 @@ export function useChat() {
             body: JSON.stringify({ content }),
             signal: controller.signal,
           });
-
-          if (!res.ok) {
-            throw new Error(`Stream request failed: ${res.status}`);
-          }
 
           const reader = res.body?.getReader();
           if (!reader) throw new Error("No readable stream");
@@ -146,6 +141,5 @@ export function useChat() {
     sendMessage,
     streamResponse,
     cancelStream,
-    getMessages,
   };
 }

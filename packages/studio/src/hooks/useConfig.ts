@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 const API_BASE = "/api/config";
 
@@ -53,6 +54,7 @@ interface UseConfigReturn {
   loading: boolean;
   error: string | null;
   fetchConfig: () => Promise<void>;
+  updateConfig: (patch: Partial<AgentConfig>) => Promise<void>;
   updateLevel0: (config: Level0Config) => Promise<void>;
   updateLevel1: (config: Level1Config) => Promise<void>;
   updateLevel2: (code: string) => Promise<void>;
@@ -69,11 +71,7 @@ export function useConfig(): UseConfigReturn {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(API_BASE);
-      if (!res.ok) {
-        throw new Error(`Failed to fetch config: ${res.status}`);
-      }
-      const data: AgentConfig = await res.json();
+      const data = await apiFetch<AgentConfig>(API_BASE);
       setConfig(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -83,21 +81,17 @@ export function useConfig(): UseConfigReturn {
     }
   }, []);
 
-  const updateLevel0 = useCallback(
-    async (level0: Level0Config) => {
+  const updateConfig = useCallback(
+    async (patch: Partial<AgentConfig>) => {
       if (!config) return;
       setSaving(true);
       setError(null);
       try {
-        const res = await fetch(API_BASE, {
+        const data = await apiFetch<AgentConfig>(API_BASE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...config, level0 }),
+          body: JSON.stringify({ ...config, ...patch }),
         });
-        if (!res.ok) {
-          throw new Error(`Failed to update Level 0 config: ${res.status}`);
-        }
-        const data: AgentConfig = await res.json();
         setConfig(data);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Unknown error";
@@ -110,58 +104,23 @@ export function useConfig(): UseConfigReturn {
     [config],
   );
 
+  // Backward-compatible wrappers
+  const updateLevel0 = useCallback(
+    async (level0: Level0Config) => updateConfig({ level0 }),
+    [updateConfig],
+  );
+
   const updateLevel1 = useCallback(
-    async (level1: Level1Config) => {
-      if (!config) return;
-      setSaving(true);
-      setError(null);
-      try {
-        const res = await fetch(API_BASE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...config, level1 }),
-        });
-        if (!res.ok) {
-          throw new Error(`Failed to update Level 1 config: ${res.status}`);
-        }
-        const data: AgentConfig = await res.json();
-        setConfig(data);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        setError(msg);
-        throw err;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [config],
+    async (level1: Level1Config) => updateConfig({ level1 }),
+    [updateConfig],
   );
 
   const updateLevel2 = useCallback(
     async (code: string) => {
       if (!config) return;
-      setSaving(true);
-      setError(null);
-      try {
-        const res = await fetch(API_BASE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...config, level2: { ...config.level2, code } }),
-        });
-        if (!res.ok) {
-          throw new Error(`Failed to update Level 2 config: ${res.status}`);
-        }
-        const data: AgentConfig = await res.json();
-        setConfig(data);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        setError(msg);
-        throw err;
-      } finally {
-        setSaving(false);
-      }
+      return updateConfig({ level2: { ...config.level2, code } });
     },
-    [config],
+    [updateConfig, config],
   );
 
   // Auto-fetch on mount
@@ -174,6 +133,7 @@ export function useConfig(): UseConfigReturn {
     loading,
     error,
     fetchConfig,
+    updateConfig,
     updateLevel0,
     updateLevel1,
     updateLevel2,

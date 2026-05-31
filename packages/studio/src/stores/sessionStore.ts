@@ -31,10 +31,9 @@ interface SessionState {
   updateMessage: (sessionId: string, messageId: string, content: string) => void;
   appendToMessage: (sessionId: string, messageId: string, chunk: string) => void;
   setMessageStreaming: (sessionId: string, messageId: string, streaming: boolean) => void;
-  getMessages: (sessionId: string) => Message[];
 }
 
-export const useSessionStore = create<SessionState>((set, get) => ({
+export const useSessionStore = create<SessionState>((set) => ({
   sessions: [],
   currentSession: null,
   messages: {},
@@ -99,6 +98,4 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         ),
       },
     })),
-
-  getMessages: (sessionId) => get().messages[sessionId] ?? [],
 }));
