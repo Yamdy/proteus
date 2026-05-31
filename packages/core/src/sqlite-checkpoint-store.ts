@@ -211,6 +211,18 @@ export class SqliteCostStore implements CostStore {
 
 // --- Factory: create all SQLite stores sharing one db ---
 
+function bindMethods(instance: object): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(instance))) {
+    if (key === "constructor") continue;
+    const value = (instance as Record<string, unknown>)[key];
+    if (typeof value === "function") {
+      result[key] = value.bind(instance);
+    }
+  }
+  return result;
+}
+
 export function createSqliteStore(dbPath: string): CheckpointStore & { close(): void; getTableNames(): string[]; getJournalMode(): string } {
   const db = new Database(dbPath);
   migrate(db);
@@ -224,12 +236,12 @@ export function createSqliteStore(dbPath: string): CheckpointStore & { close(): 
 
   return Object.assign(
     {},
-    session,
-    message,
-    checkpoint,
-    event,
-    config,
-    cost,
+    bindMethods(session),
+    bindMethods(message),
+    bindMethods(checkpoint),
+    bindMethods(event),
+    bindMethods(config),
+    bindMethods(cost),
     {
       close(): void { db.close(); },
       getTableNames(): string[] {
@@ -241,71 +253,5 @@ export function createSqliteStore(dbPath: string): CheckpointStore & { close(): 
         return row as string;
       },
     },
-  );
-}
-
-// --- Backward-compatible class (delegates to per-concern stores) ---
-
-export class SqliteCheckpointStore implements CheckpointStore {
-  private readonly db: Database.Database;
-  private readonly _session: SqliteSessionStore;
-  private readonly _message: SqliteMessageStore;
-  private readonly _checkpoint: SqliteCheckpointLog;
-  private readonly _event: SqliteEventLog;
-  private readonly _config: SqliteConfigStore;
-  private readonly _cost: SqliteCostStore;
-
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath);
-    migrate(this.db);
-    this._session = new SqliteSessionStore(this.db);
-    this._message = new SqliteMessageStore(this.db);
-    this._checkpoint = new SqliteCheckpointLog(this.db);
-    this._event = new SqliteEventLog(this.db);
-    this._config = new SqliteConfigStore(this.db);
-    this._cost = new SqliteCostStore(this.db);
-  }
-
-  getTableNames(): string[] {
-    const rows = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[];
-    return rows.map((r) => r.name);
-  }
-
-  getJournalMode(): string {
-    const row = this.db.pragma("journal_mode", { simple: true });
-    return row as string;
-  }
-
-  close(): void {
-    this.db.close();
-  }
-
-  // SessionStore
-  createSession(meta: SessionMeta): void { return this._session.createSession(meta); }
-  loadSession(sessionId: string): SessionMeta | undefined { return this._session.loadSession(sessionId); }
-  updateSession(sessionId: string, patch: Partial<SessionMeta>): void { return this._session.updateSession(sessionId, patch); }
-  deleteSession(sessionId: string): void { return this._session.deleteSession(sessionId); }
-  listSessions(): SessionMeta[] { return this._session.listSessions(); }
-
-  // MessageStore
-  addMessages(sessionId: string, messages: LLMMessage[]): void { return this._message.addMessages(sessionId, messages); }
-  loadMessages(sessionId: string): LLMMessage[] { return this._message.loadMessages(sessionId); }
-
-  // CheckpointLog
-  saveCheckpoint(checkpoint: FrozenContext): void { return this._checkpoint.saveCheckpoint(checkpoint); }
-  loadLatestCheckpoint(sessionId: string): FrozenContext | undefined { return this._checkpoint.loadLatestCheckpoint(sessionId); }
-  loadCheckpoint(sessionId: string, turnId: string): FrozenContext | undefined { return this._checkpoint.loadCheckpoint(sessionId, turnId); }
-
-  // EventLog
-  appendEvent(event: StoreEvent): void { return this._event.appendEvent(event); }
-  queryEvents(sessionId: string, since?: number): StoreEvent[] { return this._event.queryEvents(sessionId, since); }
-
-  // ConfigStore
-  saveConfigSnapshot(snapshot: ConfigSnapshot): void { return this._config.saveConfigSnapshot(snapshot); }
-  loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined { return this._config.loadLatestConfigSnapshot(sessionId); }
-  listConfigSnapshots(sessionId: string): ConfigSnapshot[] { return this._config.listConfigSnapshots(sessionId); }
-
-  // CostStore
-  addCostRecord(record: CostRecord): void { return this._cost.addCostRecord(record); }
-  loadCostRecords(sessionId: string): CostRecord[] { return this._cost.loadCostRecords(sessionId); }
+  ) as CheckpointStore & { close(): void; getTableNames(): string[]; getJournalMode(): string };
 }

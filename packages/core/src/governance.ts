@@ -1,6 +1,7 @@
 import type { EventLog, StoreEvent } from "./checkpoint-store.js";
 import type { HandlerDefinition, HandlerResult, PhaseName } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
+import { shouldShortCircuit } from "./handler-engine.js";
 import type { HandlerContext } from "./context.js";
 
 // --- PermissionPolicy ---
@@ -56,23 +57,27 @@ export interface ResponsePolicy {
   ): ResponseDecision | Promise<ResponseDecision>;
 }
 
-// --- GovernanceManager ---
+// --- Governance ---
 
-export interface GovernanceManagerOptions {
-  policies: PermissionPolicy[];
+export interface GovernanceOptions {
+  policies?: PermissionPolicy[];
   responsePolicies?: ResponsePolicy[];
+  beforeLlmHooks?: BeforeLlmHook[];
   eventLog?: EventLog;
 }
 
-export class GovernanceManager {
+export class Governance {
   private readonly policies: readonly PermissionPolicy[];
   private readonly responsePolicies: readonly ResponsePolicy[];
   private readonly eventLog?: EventLog;
+  private readonly beforeLlmHooks: BeforeLlmHook[];
+  private beforeLlmRegistered = false;
 
-  constructor(opts: GovernanceManagerOptions) {
-    this.policies = opts.policies;
-    this.responsePolicies = opts.responsePolicies ?? [];
-    this.eventLog = opts.eventLog;
+  constructor(opts?: GovernanceOptions) {
+    this.policies = opts?.policies ?? [];
+    this.responsePolicies = opts?.responsePolicies ?? [];
+    this.eventLog = opts?.eventLog;
+    this.beforeLlmHooks = opts?.beforeLlmHooks ? [...opts.beforeLlmHooks] : [];
   }
 
   registerBeforeTool(engine: HandlerEngine): void {
@@ -97,6 +102,26 @@ export class GovernanceManager {
       builtin: true,
       handle: (ctx) => this.handleBeforeResponse(ctx),
     });
+  }
+
+  registerBeforeLlm(engine: HandlerEngine): void {
+    if (!this.beforeLlmRegistered) {
+      this.beforeLlmRegistered = true;
+      engine.register({
+        name: "governance:before-llm",
+        phases: ["context_assembly" as PhaseName],
+        events: ["phase:before"],
+        priority: 100,
+        trust: 3,
+        builtin: true,
+        handle: (ctx) => this.executeBeforeLlmHooks(ctx),
+      });
+    }
+  }
+
+  addBeforeLlmHook(hook: BeforeLlmHook): this {
+    this.beforeLlmHooks.push(hook);
+    return this;
   }
 
   private async handleBeforeTool(ctx: HandlerContext): Promise<HandlerResult> {
@@ -161,6 +186,20 @@ export class GovernanceManager {
       timestamp: Date.now(),
     };
     this.eventLog.appendEvent(event);
+  }
+
+  private async executeBeforeLlmHooks(ctx: HandlerContext): Promise<HandlerResult> {
+    let lastResult: HandlerResult | undefined;
+    for (const hook of this.beforeLlmHooks) {
+      const result = await hook(ctx);
+      if (result != null) {
+        lastResult = result as HandlerResult;
+        if (shouldShortCircuit(lastResult)) {
+          return lastResult;
+        }
+      }
+    }
+    return lastResult ?? { ok: true };
   }
 }
 
@@ -262,55 +301,4 @@ export function registerGovernance(engine: HandlerEngine, eventLog: EventLog): v
   }
 }
 
-// --- GovernanceHooks ---
-
 export type BeforeLlmHook = (ctx: HandlerContext) => Promise<HandlerResult | void> | HandlerResult | void;
-
-function isShortCircuit(result: HandlerResult): boolean {
-  if ("ok" in result) return !result.ok;
-  if ("abort" in result) return result.abort;
-  if ("suspend" in result) return result.suspend;
-  if ("error" in result) return result.recoverable === false;
-  return false;
-}
-
-export class GovernanceHooks {
-  private readonly engine: HandlerEngine;
-  private readonly beforeLlmHooks: BeforeLlmHook[] = [];
-  private beforeLlmRegistered = false;
-
-  constructor(engine: HandlerEngine) {
-    this.engine = engine;
-  }
-
-  registerBeforeLlm(hook: BeforeLlmHook): this {
-    this.beforeLlmHooks.push(hook);
-    if (!this.beforeLlmRegistered) {
-      this.beforeLlmRegistered = true;
-      this.engine.register({
-        name: "governance-hooks:before-llm",
-        phases: ["context_assembly" as PhaseName],
-        events: ["phase:before"],
-        priority: 100,
-        trust: 3,
-        builtin: true,
-        handle: (ctx) => this.executeBeforeLlmHooks(ctx),
-      });
-    }
-    return this;
-  }
-
-  private async executeBeforeLlmHooks(ctx: HandlerContext): Promise<HandlerResult> {
-    let lastResult: HandlerResult | undefined;
-    for (const hook of this.beforeLlmHooks) {
-      const result = await hook(ctx);
-      if (result != null) {
-        lastResult = result as HandlerResult;
-        if (isShortCircuit(lastResult)) {
-          return lastResult;
-        }
-      }
-    }
-    return lastResult ?? { ok: true };
-  }
-}

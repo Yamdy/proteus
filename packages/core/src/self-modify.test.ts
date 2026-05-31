@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { SelfModifyTool } from "./self-modify.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { ConfigSnapshotManager } from "./config-snapshot-manager.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore, type CheckpointStore } from "./checkpoint-store.js";
 import type { HandlerFn } from "./types.js";
 import type { ToolContext } from "./index.js";
 
@@ -12,14 +12,14 @@ function makeContext(): ToolContext {
 
 describe("SelfModifyTool", () => {
   let engine: HandlerEngine;
-  let store: InMemoryCheckpointStore;
+  let store: CheckpointStore;
   let snapshotManager: ConfigSnapshotManager;
   let events: Array<{ event: string; payload: unknown }>;
   let commits: string[];
 
   beforeEach(() => {
     engine = new HandlerEngine();
-    store = new InMemoryCheckpointStore();
+    store = createInMemoryStore();
     snapshotManager = new ConfigSnapshotManager(store);
     events = [];
     commits = [];

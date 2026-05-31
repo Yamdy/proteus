@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Harness } from "./harness.js";
 import { AgentContext, SessionContext } from "./context.js";
 import { HandlerEngine } from "./handler-engine.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore } from "./checkpoint-store.js";
 import type { LLMProvider } from "./index.js";
 
 function stubLLM(): LLMProvider {
@@ -39,7 +39,7 @@ describe("Harness — happy path", () => {
     engine.observe("phase:before", async (ctx: any) => { events.push(`before:${ctx.phaseName}`); return { ok: true as const }; });
     engine.observe("phase:after", async (ctx: any) => { events.push(`after:${ctx.phaseName}`); return { ok: true as const }; });
 
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -57,7 +57,7 @@ describe("Harness — happy path", () => {
 
   it("auto-checkpoints at turn:end", async () => {
     const { agent, session } = makeContext();
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
 
     await harness.runTurn(session, agent);
@@ -73,7 +73,7 @@ describe("Harness — happy path", () => {
 
     engine.observe("turn:end", async (p: any) => { payloads.push(p); return { ok: true as const }; });
 
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     await harness.runTurn(session, agent);
 
@@ -96,7 +96,7 @@ describe("Harness — handler interception", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -114,7 +114,7 @@ describe("Harness — handler interception", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -132,7 +132,7 @@ describe("Harness — handler interception", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -155,7 +155,7 @@ describe("Harness — handler interception", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -174,7 +174,7 @@ describe("Harness — handler interception", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -193,7 +193,7 @@ describe("Harness — handler interception", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -214,7 +214,7 @@ describe("Harness — suspend checkpoint", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const result = await harness.runTurn(session, agent);
 
@@ -253,7 +253,7 @@ describe("Harness — resume", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
 
     // First turn: suspends at first phase
@@ -273,7 +273,7 @@ describe("Harness — resume", () => {
 
   it("resume throws if no suspend checkpoint exists", async () => {
     const { agent, session } = makeContext();
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
 
     // Run a normal turn (no suspend) — checkpoint saved but without resumeReason
@@ -297,7 +297,7 @@ describe("Harness — runChain", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
 
     const result = await harness.runChain(session, agent, { maxTurns: 3 });
@@ -321,7 +321,7 @@ describe("Harness — runChain", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const controller = new AbortController();
 
@@ -359,7 +359,7 @@ describe("Harness — runChain", () => {
     });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
 
     // Chain suspends on first turn
@@ -388,7 +388,7 @@ describe("Harness — runChain", () => {
     engine.observe("chain:end", async () => { events.push("chain:end"); return { ok: true as const }; });
 
     const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
 
     await harness.runChain(session, agent, { maxTurns: 2 });

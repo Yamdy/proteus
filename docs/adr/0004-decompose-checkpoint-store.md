@@ -129,6 +129,8 @@ Each consumer declares only the concern it uses:
 
 All consumers use the factory function or the composed `CheckpointStore` type. The class name is removed entirely — one-shot migration, no alias.
 
+**Status: DONE** — `InMemoryCheckpointStore` and `SqliteCheckpointStore` wrapper classes deleted. All consumers migrated to `createInMemoryStore()` / `createSqliteStore()` factories.
+
 ### 6. Separate test files per concern
 
 Each narrow interface gets its own test file. The existing monolithic test files (`checkpoint-store.test.ts`, `sqlite-checkpoint-store.test.ts`) are split into 6 files each.

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { SessionManager } from "./session-manager.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore, type CheckpointStore } from "./checkpoint-store.js";
 import type { SessionConfig } from "./index.js";
 
 function testConfig(sessionId: string): SessionConfig {
@@ -13,10 +13,10 @@ function testConfig(sessionId: string): SessionConfig {
 }
 
 describe("SessionManager", () => {
-  let store: InMemoryCheckpointStore;
+  let store: CheckpointStore;
 
   beforeEach(() => {
-    store = new InMemoryCheckpointStore();
+    store = createInMemoryStore();
   });
 
   describe("create()", () => {

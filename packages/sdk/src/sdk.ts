@@ -6,7 +6,7 @@ import {
   HandlerEngine,
   registerBuiltins,
   ToolRegistry,
-  InMemoryCheckpointStore,
+  createInMemoryStore,
 } from "@proteus/core";
 
 import type {
@@ -58,7 +58,7 @@ export class ProteusSDK {
   private readonly suspendedSessions = new Set<string>();
 
   constructor(options?: SDKOptions) {
-    this.store = options?.store ?? new InMemoryCheckpointStore();
+    this.store = options?.store ?? createInMemoryStore();
     this.llm = options?.llm;
 
     this.toolRegistry = new ToolRegistry();

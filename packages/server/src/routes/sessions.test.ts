@@ -1,21 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { ProteusServer, createServer } from "../server.js";
-import type { SessionConfig } from "@proteus/core";
-import { InMemoryCheckpointStore } from "@proteus/core";
-
-function makeConfig(overrides?: Partial<SessionConfig>): SessionConfig {
-  return {
-    sessionId: "test-session",
-    llm: {
-      provider: "openai",
-      model: "gpt-4o",
-      temperature: 0.7,
-    },
-    tools: {},
-    logLevel: "info",
-    ...overrides,
-  };
-}
+import { createInMemoryStore } from "@proteus/core";
 
 describe("Session routes", () => {
   let server: ProteusServer;
@@ -26,41 +11,39 @@ describe("Session routes", () => {
     }
   });
 
-  // --- POST /sessions ---
+  // --- POST /api/sessions ---
 
-  describe("POST /sessions", () => {
+  describe("POST /api/sessions", () => {
     it("creates a session and returns 201", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
-      const config = makeConfig();
       const response = await server.instance.inject({
         method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "s1", config },
+        url: "/api/sessions",
+        payload: { name: "test-session" },
       });
 
       expect(response.statusCode).toBe(201);
       const body = response.json();
-      expect(body.sessionId).toBe("s1");
-      expect(body.config).toEqual(config);
+      expect(body.id).toBeDefined();
+      expect(body.name).toBe("test-session");
     });
 
     it("returns 409 when session already exists", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
-      const config = makeConfig();
       await server.instance.inject({
         method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "dup", config },
+        url: "/api/sessions",
+        payload: { sessionId: "dup", name: "dup" },
       });
 
       const response = await server.instance.inject({
         method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "dup", config },
+        url: "/api/sessions",
+        payload: { sessionId: "dup", name: "dup" },
       });
 
       expect(response.statusCode).toBe(409);
@@ -68,100 +51,84 @@ describe("Session routes", () => {
       expect(body.error).toBe("Conflict");
       expect(body.message).toContain("already exists");
     });
-
-    it("returns 400 when body is missing fields", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
-      await server.start();
-
-      const response = await server.instance.inject({
-        method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "x" }, // missing config
-      });
-
-      expect(response.statusCode).toBe(400);
-      const body = response.json();
-      expect(body.error).toBe("Bad Request");
-    });
   });
 
-  // --- GET /sessions ---
+  // --- GET /api/sessions ---
 
-  describe("GET /sessions", () => {
+  describe("GET /api/sessions", () => {
     it("returns empty list when no sessions exist", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/sessions",
+        url: "/api/sessions",
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.sessions).toEqual([]);
+      expect(body).toEqual([]);
     });
 
     it("lists created sessions", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
-      const config = makeConfig();
       await server.instance.inject({
         method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "a", config },
+        url: "/api/sessions",
+        payload: { sessionId: "a", name: "a" },
       });
       await server.instance.inject({
         method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "b", config },
+        url: "/api/sessions",
+        payload: { sessionId: "b", name: "b" },
       });
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/sessions",
+        url: "/api/sessions",
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.sessions).toContain("a");
-      expect(body.sessions).toContain("b");
+      expect(body).toHaveLength(2);
+      expect(body.map((s: any) => s.id)).toContain("a");
+      expect(body.map((s: any) => s.id)).toContain("b");
     });
   });
 
-  // --- GET /sessions/:id ---
+  // --- GET /api/sessions/:id ---
 
-  describe("GET /sessions/:id", () => {
+  describe("GET /api/sessions/:id", () => {
     it("returns a session by ID", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
-      const config = makeConfig({ sessionId: "s1" });
       await server.instance.inject({
         method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "s1", config },
+        url: "/api/sessions",
+        payload: { sessionId: "s1", name: "session-1" },
       });
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/sessions/s1",
+        url: "/api/sessions/s1",
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.sessionId).toBe("s1");
-      expect(body.config).toEqual(config);
+      expect(body.id).toBe("s1");
+      expect(body.name).toBe("session-1");
     });
 
     it("returns 404 for non-existent session", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/sessions/missing",
+        url: "/api/sessions/missing",
       });
 
       expect(response.statusCode).toBe(404);
@@ -171,23 +138,22 @@ describe("Session routes", () => {
     });
   });
 
-  // --- DELETE /sessions/:id ---
+  // --- DELETE /api/sessions/:id ---
 
-  describe("DELETE /sessions/:id", () => {
+  describe("DELETE /api/sessions/:id", () => {
     it("deletes a session and returns 204", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
-      const config = makeConfig();
       await server.instance.inject({
         method: "POST",
-        url: "/sessions",
-        payload: { sessionId: "del", config },
+        url: "/api/sessions",
+        payload: { sessionId: "del", name: "to-delete" },
       });
 
       const response = await server.instance.inject({
         method: "DELETE",
-        url: "/sessions/del",
+        url: "/api/sessions/del",
       });
 
       expect(response.statusCode).toBe(204);
@@ -195,18 +161,18 @@ describe("Session routes", () => {
       // Verify it's gone
       const getResponse = await server.instance.inject({
         method: "GET",
-        url: "/sessions/del",
+        url: "/api/sessions/del",
       });
       expect(getResponse.statusCode).toBe(404);
     });
 
     it("returns 404 when session does not exist", async () => {
-      server = createServer({ port: 0, store: new InMemoryCheckpointStore() });
+      server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
       const response = await server.instance.inject({
         method: "DELETE",
-        url: "/sessions/ghost",
+        url: "/api/sessions/ghost",
       });
 
       expect(response.statusCode).toBe(404);

@@ -2,7 +2,7 @@
 // Matches the API contract expected by the Studio frontend.
 
 import type { FastifyInstance } from "fastify";
-import type { SessionManager, SessionConfig } from "@proteus/core";
+import type { SessionManager, SessionConfig, Harness, AgentContext, LLMMessage } from "@proteus/core";
 
 interface CreateSessionBody {
   name?: string;
@@ -28,11 +28,17 @@ function toSessionView(sessionId: string, config: SessionConfig): SessionView {
   };
 }
 
+export interface SessionRoutesOptions {
+  sessionManager: SessionManager;
+  harness?: Harness;
+  agent?: AgentContext;
+}
+
 export async function sessionRoutes(
   app: FastifyInstance,
-  opts: { sessionManager: SessionManager },
+  opts: SessionRoutesOptions,
 ): Promise<void> {
-  const { sessionManager } = opts;
+  const { sessionManager, harness, agent } = opts;
 
   // POST /sessions — create a session
   app.post<{ Body: CreateSessionBody }>(
@@ -159,7 +165,30 @@ export async function sessionRoutes(
         "X-Accel-Buffering": "no",
       });
 
-      // Simulate streaming response (without LLM, send a simple acknowledgment)
+      // Real Harness inference when available
+      if (harness && agent) {
+        const userMsg: LLMMessage = { role: "user", content };
+        session.workingMemory.push(userMsg);
+
+        try {
+          await harness.runTurn(session, agent, {
+            callbacks: {
+              onToken: (token: string) => {
+                reply.raw.write(`data: ${JSON.stringify({ content: token })}\n\n`);
+              },
+            },
+          });
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : "Unknown error";
+          reply.raw.write(`data: ${JSON.stringify({ error: errMsg })}\n\n`);
+        }
+
+        reply.raw.write("data: [DONE]\n\n");
+        reply.raw.end();
+        return;
+      }
+
+      // Fallback: simulated streaming (no LLM available)
       const responseText = `Received: ${content}`;
       const chunks = responseText.match(/.{1,20}/g) ?? [responseText];
 

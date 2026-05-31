@@ -16,7 +16,6 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
   const [logLevel, setLogLevel] = useState(config.logLevel);
   const [dirty, setDirty] = useState(false);
 
-  // Sync when external config changes
   useEffect(() => {
     setLlm(config.llm);
     setTools(config.tools);
@@ -56,23 +55,23 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
   };
 
   return (
-    <div data-testid="level0-form" className="flex flex-col gap-8">
+    <div data-testid="level0-form" className="flex flex-col gap-8 animate-fade-in">
       {/* LLM Configuration */}
       <section>
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
+        <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.15em] text-cyan-500/50">
           LLM Configuration
         </h3>
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Provider */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-400">
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">
               Provider
             </label>
             <select
               value={llm.provider}
               onChange={(e) => handleLlmChange("provider", e.target.value)}
               data-testid="provider-select"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 outline-none transition-colors focus:border-blue-600"
+              className="w-full rounded-lg border border-white/[0.06] bg-surface-50/80 px-3 py-2.5 text-sm text-gray-100 outline-none transition-all duration-200 focus:border-cyan-500/30 focus:shadow-[0_0_8px_rgba(34,211,238,0.06)]"
             >
               {PROVIDERS.map((p) => (
                 <option key={p} value={p}>
@@ -84,7 +83,7 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
 
           {/* Model */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-400">
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">
               Model
             </label>
             <input
@@ -93,14 +92,17 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
               onChange={(e) => handleLlmChange("model", e.target.value)}
               placeholder="e.g. gpt-4o, claude-3.5-sonnet"
               data-testid="model-input"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 outline-none transition-colors focus:border-blue-600"
+              className="w-full rounded-lg border border-white/[0.06] bg-surface-50/80 px-3 py-2.5 text-sm text-gray-100 placeholder-gray-700 outline-none transition-all duration-200 focus:border-cyan-500/30 focus:shadow-[0_0_8px_rgba(34,211,238,0.06)]"
             />
           </div>
 
           {/* Temperature */}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-400">
-              Temperature ({llm.temperature.toFixed(2)})
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">
+              Temperature{" "}
+              <span className="font-mono text-cyan-400/60">
+                {llm.temperature.toFixed(2)}
+              </span>
             </label>
             <input
               type="range"
@@ -111,9 +113,9 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
               onChange={(e) =>
                 handleLlmChange("temperature", parseFloat(e.target.value))
               }
-              className="w-full accent-blue-600"
+              className="w-full accent-cyan-500"
             />
-            <div className="flex justify-between text-[10px] text-gray-600">
+            <div className="flex justify-between text-[10px] text-gray-700">
               <span>0 (precise)</span>
               <span>2 (creative)</span>
             </div>
@@ -123,34 +125,36 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
 
       {/* Tools */}
       <section>
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
+        <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.15em] text-cyan-500/50">
           Tools
         </h3>
         {tools.length === 0 ? (
-          <p className="text-sm text-gray-600">No tools registered.</p>
+          <p className="text-sm text-gray-700">No tools registered.</p>
         ) : (
           <div className="space-y-2">
             {tools.map((tool, index) => (
               <div
                 key={tool.name}
-                className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 px-4 py-3"
+                className="flex items-center justify-between rounded-lg border border-white/[0.04] bg-surface-50/40 px-4 py-3 transition-all duration-200 hover:border-white/[0.08]"
               >
                 <div>
                   <span className="text-sm font-medium text-gray-200">
                     {tool.name}
                   </span>
                   {tool.description && (
-                    <p className="text-xs text-gray-500">{tool.description}</p>
+                    <p className="text-xs text-gray-600">{tool.description}</p>
                   )}
                 </div>
                 <button
                   onClick={() => handleToolToggle(index)}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    tool.enabled ? "bg-blue-600" : "bg-gray-700"
+                  className={`relative h-6 w-11 rounded-full transition-all duration-300 ${
+                    tool.enabled
+                      ? "bg-gradient-to-r from-cyan-600 to-teal-600 shadow-glow-sm"
+                      : "bg-surface-300"
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ${
                       tool.enabled ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
@@ -163,7 +167,7 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
 
       {/* Log Level */}
       <section>
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-400">
+        <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.15em] text-cyan-500/50">
           Log Level
         </h3>
         <div className="flex gap-2">
@@ -172,10 +176,10 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
               key={level}
               onClick={() => handleLogLevelChange(level)}
               data-testid={`log-level-${level}`}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 logLevel === level
-                  ? "bg-blue-600 text-white"
-                  : "border border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-600 hover:text-gray-200"
+                  ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 shadow-glow-sm"
+                  : "border border-white/[0.06] bg-surface-50/40 text-gray-500 hover:border-white/[0.12] hover:text-gray-300"
               }`}
             >
               {level}
@@ -185,19 +189,19 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
       </section>
 
       {/* Actions */}
-      <div className="flex gap-3 border-t border-gray-800 pt-6">
+      <div className="flex gap-3 border-t border-white/[0.04] pt-6">
         <button
           onClick={handleSave}
           disabled={!dirty || saving}
           data-testid="save-btn"
-          className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-gradient-to-r from-cyan-600 to-teal-600 px-5 py-2.5 text-sm font-medium text-white shadow-glow-sm transition-all duration-200 hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-30 disabled:shadow-none"
         >
           {saving ? "Saving..." : "Save Changes"}
         </button>
         <button
           onClick={handleReset}
           disabled={!dirty || saving}
-          className="rounded-lg border border-gray-700 px-5 py-2 text-sm font-medium text-gray-400 transition-colors hover:border-gray-600 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg border border-white/[0.06] px-5 py-2.5 text-sm font-medium text-gray-500 transition-all duration-200 hover:border-white/[0.12] hover:text-gray-300 disabled:cursor-not-allowed disabled:opacity-30"
         >
           Reset
         </button>

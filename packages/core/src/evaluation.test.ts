@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { EvaluationHarness } from "./evaluation.js";
 import type { EvalSuite, EvalTask, EvalGrader } from "./evaluation.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore } from "./checkpoint-store.js";
 
 // --- Test helpers ---
 
@@ -24,7 +24,7 @@ function task(id: string, input: string, expected?: string, tags?: string[]): Ev
 
 describe("EvaluationHarness", () => {
   it("runTask returns correct EvalTaskResult structure", async () => {
-    const harness = new EvaluationHarness({ store: new InMemoryCheckpointStore() });
+    const harness = new EvaluationHarness({ store: createInMemoryStore() });
     const t = task("t1", "q1", "a1");
     const result = await harness.runTask(t, [stubGrader(true, 1.0)]);
 
@@ -35,7 +35,7 @@ describe("EvaluationHarness", () => {
   });
 
   it("runSuite returns correct EvalReport", async () => {
-    const harness = new EvaluationHarness({ store: new InMemoryCheckpointStore() });
+    const harness = new EvaluationHarness({ store: createInMemoryStore() });
     const s = suite([
       task("t1", "q1", "a1"),
       task("t2", "q2", "a2"),
@@ -51,7 +51,7 @@ describe("EvaluationHarness", () => {
   });
 
   it("runSuite calculates correct summary for mixed results", async () => {
-    const harness = new EvaluationHarness({ store: new InMemoryCheckpointStore() });
+    const harness = new EvaluationHarness({ store: createInMemoryStore() });
     const s = suite(
       [task("t1", "q1", "a1"), task("t2", "q2", "a2")],
       [stubGrader(false, 0.0)],
@@ -65,7 +65,7 @@ describe("EvaluationHarness", () => {
   });
 
   it("runSuite filters tasks by tag", async () => {
-    const harness = new EvaluationHarness({ store: new InMemoryCheckpointStore() });
+    const harness = new EvaluationHarness({ store: createInMemoryStore() });
     const s = suite([
       task("t1", "q1", "a1", ["fast"]),
       task("t2", "q2", "a2", ["slow"]),
@@ -78,7 +78,7 @@ describe("EvaluationHarness", () => {
   });
 
   it("runTask uses all graders", async () => {
-    const harness = new EvaluationHarness({ store: new InMemoryCheckpointStore() });
+    const harness = new EvaluationHarness({ store: createInMemoryStore() });
     const graders = [stubGrader(true, 1.0), stubGrader(false, 0.5)];
     const result = await harness.runTask(task("t1", "q1", "a1"), graders);
 

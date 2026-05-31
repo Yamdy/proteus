@@ -39,21 +39,21 @@ export default function ConfigPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-gray-500">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-blue-500" />
-        <p className="text-sm">Loading configuration...</p>
+      <div className="flex h-full flex-col items-center justify-center gap-3">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-cyan-500/20 border-t-cyan-400" />
+        <p className="text-sm text-gray-500">Loading configuration...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 text-gray-500">
-        <div className="rounded-lg border border-red-800 bg-red-950 px-6 py-4 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-6 py-5 text-center">
           <p className="text-sm text-red-300">{error}</p>
           <button
             onClick={fetchConfig}
-            className="mt-3 rounded bg-red-800 px-4 py-1.5 text-xs font-medium text-red-200 hover:bg-red-700"
+            className="mt-3 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-1.5 text-xs font-medium text-red-300 transition-all hover:bg-red-500/20"
           >
             Retry
           </button>
@@ -73,34 +73,37 @@ export default function ConfigPage() {
   return (
     <div data-testid="config-page" className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-gray-800 px-6 py-4">
-        <h1 className="text-xl font-bold text-white">Configuration</h1>
-        <p className="mt-1 text-xs text-gray-500">
+      <div className="border-b border-white/[0.04] px-6 py-5">
+        <h1 className="text-xl font-bold text-gray-100 text-glow-subtle">
+          Configuration
+        </h1>
+        <p className="mt-1 text-xs text-gray-600">
           Manage agent configuration across three levels of abstraction
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-800 px-6">
+      <div className="border-b border-white/[0.04] px-6">
         <div className="flex gap-0">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               data-testid={`config-tab-${tab.id}`}
-              className={`relative px-5 py-3 text-sm font-medium transition-colors ${
+              className={`relative px-5 py-3 text-sm font-medium transition-all duration-200 ${
                 activeTab === tab.id
-                  ? "text-white"
-                  : "text-gray-500 hover:text-gray-300"
+                  ? "text-cyan-100"
+                  : "text-gray-600 hover:text-gray-400"
               }`}
             >
               <div className="flex items-center gap-2">
                 <span>{tab.label}</span>
-                <span className="text-[10px] text-gray-600">{tab.description}</span>
+                <span className="text-[10px] text-gray-700">
+                  {tab.description}
+                </span>
               </div>
-              {/* Active indicator */}
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
               )}
             </button>
           ))}

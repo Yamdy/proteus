@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ConfigSnapshotManager } from "./config-snapshot-manager.js";
 import { HandlerEngine } from "./handler-engine.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore, type CheckpointStore } from "./checkpoint-store.js";
 import type { HandlerDefinition } from "./index.js";
 import type { HandlerFn } from "./types.js";
 
@@ -17,11 +17,11 @@ function makeHandler(name: string, opts?: { events?: string[]; priority?: number
 }
 
 describe("ConfigSnapshotManager", () => {
-  let store: InMemoryCheckpointStore;
+  let store: CheckpointStore;
   let manager: ConfigSnapshotManager;
 
   beforeEach(() => {
-    store = new InMemoryCheckpointStore();
+    store = createInMemoryStore();
     manager = new ConfigSnapshotManager(store);
   });
 

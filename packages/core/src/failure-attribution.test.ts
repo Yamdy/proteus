@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ETCLOVGLayer, InMemoryAttributionStore, attributeFailure } from "./failure-attribution.js";
 import type { AttributionRecord } from "./failure-attribution.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore } from "./checkpoint-store.js";
 
 // --- ETCLOVGLayer ---
 
@@ -100,7 +100,7 @@ describe("InMemoryAttributionStore", () => {
   });
 
   it("persists to CheckpointStore event log", () => {
-    const checkpointStore = new InMemoryCheckpointStore();
+    const checkpointStore = createInMemoryStore();
     const store = new InMemoryAttributionStore(checkpointStore);
     const record: AttributionRecord = {
       category: "C",

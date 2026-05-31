@@ -16,7 +16,7 @@ function matchesHandler(rh: RegisteredHandler, event: string, payload?: unknown)
   return true;
 }
 
-function shouldShortCircuit(result: HandlerResult): boolean {
+export function shouldShortCircuit(result: HandlerResult): boolean {
   if ("ok" in result) return !result.ok;
   if ("abort" in result) return result.abort;
   if ("suspend" in result) return result.suspend;

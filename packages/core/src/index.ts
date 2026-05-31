@@ -44,9 +44,9 @@ export {
 export type { HandlerEngineHandle } from "./context.js";
 
 // --- CheckpointStore ---
-export { InMemoryCheckpointStore, createInMemoryStore, InMemorySessionStore, InMemoryMessageStore, InMemoryCheckpointLog, InMemoryEventLog, InMemoryConfigStore, InMemoryCostStore } from "./checkpoint-store.js";
+export { createInMemoryStore, InMemorySessionStore, InMemoryMessageStore, InMemoryCheckpointLog, InMemoryEventLog, InMemoryConfigStore, InMemoryCostStore } from "./checkpoint-store.js";
 export type { CheckpointStore, SessionStore, MessageStore, CheckpointLog, EventLog, ConfigStore, CostStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord } from "./checkpoint-store.js";
-export { SqliteCheckpointStore, createSqliteStore, SqliteSessionStore, SqliteMessageStore, SqliteCheckpointLog, SqliteEventLog, SqliteConfigStore, SqliteCostStore } from "./sqlite-checkpoint-store.js";
+export { createSqliteStore, SqliteSessionStore, SqliteMessageStore, SqliteCheckpointLog, SqliteEventLog, SqliteConfigStore, SqliteCostStore } from "./sqlite-checkpoint-store.js";
 
 // --- Harness ---
 export { Harness } from "./harness.js";
@@ -59,10 +59,6 @@ export type { IsolationMode, CompactionFn, SubHarnessOptions, SubHarnessResult }
 // --- Lifecycle ---
 export { LifecycleStateMachine } from "./lifecycle.js";
 export type { LifecycleState, LifecycleEvent } from "./lifecycle.js";
-
-// --- DevServer ---
-export { DevServer } from "./dev-server.js";
-export type { DevServerOptions, SSEEvent } from "./dev-server.js";
 
 // --- LLM (Provider + Protocol) ---
 export { createProvider, createProtocol } from "./llm/index.js";
@@ -101,10 +97,6 @@ export {
 } from "./processors.js";
 export type { ContextAssemblyOptions } from "./processors.js";
 
-// --- ChatServer ---
-export { ChatServer } from "./chat-server.js";
-export type { ChatServerOptions } from "./chat-server.js";
-
 // --- MetricsCollector ---
 export { MetricsCollector, registerMetricsCollector, deriveHealthStatus, buildHealthResponse } from "./metrics-collector.js";
 export type { MetricsSnapshot, HealthStatus, HealthMetricsInput, HealthResponse } from "./metrics-collector.js";
@@ -142,8 +134,7 @@ export {
   registerGovernance,
   AllowAllPolicy,
   DenyListPolicy,
-  GovernanceManager,
-  GovernanceHooks,
+  Governance,
 } from "./governance.js";
 export type {
   AuditEntry,
@@ -151,7 +142,7 @@ export type {
   PermissionPolicy,
   ResponseDecision,
   ResponsePolicy,
-  GovernanceManagerOptions,
+  GovernanceOptions,
   BeforeLlmHook,
 } from "./governance.js";
 

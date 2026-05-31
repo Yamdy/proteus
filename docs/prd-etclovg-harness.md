@@ -249,7 +249,7 @@ Harness.runTurn()
 **测试原则：**
 - 每个模块独立可测试，不依赖其他模块的运行时状态
 - 测试外部行为（接口契约），不测试内部实现
-- 使用 InMemoryCheckpointStore 和 mock LLMProvider 作为测试基础设施
+- 使用 `createInMemoryStore()` 和 mock LLMProvider 作为测试基础设施
 - 集成测试验证跨模块协作
 
 **模块测试计划：**

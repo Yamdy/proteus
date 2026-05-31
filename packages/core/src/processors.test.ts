@@ -12,7 +12,7 @@ import type { ToolRunner } from "./processors.js";
 import { AgentContext, SessionContext, TurnContext, HandlerContext } from "./context.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { Harness } from "./harness.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore } from "./checkpoint-store.js";
 import type { LLMProvider, Tool, SessionConfig } from "./index.js";
 
 function testConfig(sessionId = "test-session"): SessionConfig {
@@ -295,7 +295,7 @@ describe("ToolExecutionProcessor", () => {
     const engine = new HandlerEngine();
     registerBuiltInProcessors(engine, { executionEnv: customEnv });
 
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const agent = new AgentContext({ llm, tools, handlerEngine: engine });
     const session = new SessionContext(testConfig());
@@ -406,7 +406,7 @@ describe("Integration: full turn cycle", () => {
     const engine = new HandlerEngine();
     registerBuiltInProcessors(engine);
 
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const agent = new AgentContext({
       llm,
@@ -454,7 +454,7 @@ describe("Integration: full turn cycle", () => {
     const engine = new HandlerEngine();
     registerBuiltInProcessors(engine);
 
-    const store = new InMemoryCheckpointStore();
+    const store = createInMemoryStore();
     const harness = new Harness({ store });
     const agent = new AgentContext({ llm, tools, handlerEngine: engine });
     const session = new SessionContext(testConfig());

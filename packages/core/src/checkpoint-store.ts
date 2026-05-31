@@ -187,63 +187,33 @@ export class InMemoryCostStore implements CostStore {
 
 // --- Factory: compose all in-memory stores into a CheckpointStore ---
 
-export function createInMemoryStore(): CheckpointStore {
-  return Object.assign(
-    {},
-    new InMemorySessionStore(),
-    new InMemoryMessageStore(),
-    new InMemoryCheckpointLog(),
-    new InMemoryEventLog(),
-    new InMemoryConfigStore(),
-    new InMemoryCostStore(),
-  );
+function bindMethods(instance: object): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(instance))) {
+    if (key === "constructor") continue;
+    const value = (instance as Record<string, unknown>)[key];
+    if (typeof value === "function") {
+      result[key] = value.bind(instance);
+    }
+  }
+  return result;
 }
 
-// --- Backward-compatible class (delegates to per-concern stores) ---
+export function createInMemoryStore(): CheckpointStore {
+  const session = new InMemorySessionStore();
+  const message = new InMemoryMessageStore();
+  const checkpoint = new InMemoryCheckpointLog();
+  const event = new InMemoryEventLog();
+  const config = new InMemoryConfigStore();
+  const cost = new InMemoryCostStore();
 
-export class InMemoryCheckpointStore implements CheckpointStore {
-  private readonly _session: InMemorySessionStore;
-  private readonly _message: InMemoryMessageStore;
-  private readonly _checkpoint: InMemoryCheckpointLog;
-  private readonly _event: InMemoryEventLog;
-  private readonly _config: InMemoryConfigStore;
-  private readonly _cost: InMemoryCostStore;
-
-  constructor() {
-    this._session = new InMemorySessionStore();
-    this._message = new InMemoryMessageStore();
-    this._checkpoint = new InMemoryCheckpointLog();
-    this._event = new InMemoryEventLog();
-    this._config = new InMemoryConfigStore();
-    this._cost = new InMemoryCostStore();
-  }
-
-  // SessionStore
-  createSession(meta: SessionMeta): void { return this._session.createSession(meta); }
-  loadSession(sessionId: string): SessionMeta | undefined { return this._session.loadSession(sessionId); }
-  updateSession(sessionId: string, patch: Partial<SessionMeta>): void { return this._session.updateSession(sessionId, patch); }
-  deleteSession(sessionId: string): void { return this._session.deleteSession(sessionId); }
-  listSessions(): SessionMeta[] { return this._session.listSessions(); }
-
-  // MessageStore
-  addMessages(sessionId: string, messages: LLMMessage[]): void { return this._message.addMessages(sessionId, messages); }
-  loadMessages(sessionId: string): LLMMessage[] { return this._message.loadMessages(sessionId); }
-
-  // CheckpointLog
-  saveCheckpoint(checkpoint: FrozenContext): void { return this._checkpoint.saveCheckpoint(checkpoint); }
-  loadLatestCheckpoint(sessionId: string): FrozenContext | undefined { return this._checkpoint.loadLatestCheckpoint(sessionId); }
-  loadCheckpoint(sessionId: string, turnId: string): FrozenContext | undefined { return this._checkpoint.loadCheckpoint(sessionId, turnId); }
-
-  // EventLog
-  appendEvent(event: StoreEvent): void { return this._event.appendEvent(event); }
-  queryEvents(sessionId: string, since?: number): StoreEvent[] { return this._event.queryEvents(sessionId, since); }
-
-  // ConfigStore
-  saveConfigSnapshot(snapshot: ConfigSnapshot): void { return this._config.saveConfigSnapshot(snapshot); }
-  loadLatestConfigSnapshot(sessionId: string): ConfigSnapshot | undefined { return this._config.loadLatestConfigSnapshot(sessionId); }
-  listConfigSnapshots(sessionId: string): ConfigSnapshot[] { return this._config.listConfigSnapshots(sessionId); }
-
-  // CostStore
-  addCostRecord(record: CostRecord): void { return this._cost.addCostRecord(record); }
-  loadCostRecords(sessionId: string): CostRecord[] { return this._cost.loadCostRecords(sessionId); }
+  return Object.assign(
+    {},
+    bindMethods(session),
+    bindMethods(message),
+    bindMethods(checkpoint),
+    bindMethods(event),
+    bindMethods(config),
+    bindMethods(cost),
+  ) as CheckpointStore;
 }

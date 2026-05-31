@@ -6,7 +6,7 @@ import websocket from "@fastify/websocket";
 import type { FastifyInstance } from "fastify";
 import {
   SessionManager,
-  InMemoryCheckpointStore,
+  createInMemoryStore,
   InMemoryCheckpointLog,
   Harness,
   AgentContext,
@@ -73,7 +73,7 @@ export class ProteusServer {
     this.app.register(websocket);
 
     this._sessionManager = new SessionManager({
-      store: options.store ?? new InMemoryCheckpointStore(),
+      store: options.store ?? createInMemoryStore(),
     });
 
     this._harness = new Harness({
@@ -118,6 +118,8 @@ export class ProteusServer {
       api.register(sessionRoutes, {
         prefix: "/sessions",
         sessionManager: this._sessionManager,
+        harness: this._harness,
+        agent: this._agent,
       });
 
       // Status and config endpoints

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { SqliteCheckpointStore } from "./sqlite-checkpoint-store.js";
+import { createSqliteStore } from "./sqlite-checkpoint-store.js";
 import { AgentContext, SessionContext, TurnContext, HandlerContext, FrozenContext } from "./context.js";
 import type { LLMProvider } from "./index.js";
 
@@ -26,7 +26,7 @@ const testConfig = { sessionId: "s1", llm: { provider: "openai", model: "gpt-4",
 // --- Sessions ---
 describe("SqliteCheckpointStore — sessions", () => {
   it("createSession / loadSession round-trip", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.createSession({ sessionId: "s1", config: testConfig });
     const loaded = store.loadSession("s1");
     expect(loaded).toBeDefined();
@@ -36,13 +36,13 @@ describe("SqliteCheckpointStore — sessions", () => {
   });
 
   it("loadSession returns undefined for missing id", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     expect(store.loadSession("missing")).toBeUndefined();
     store.close();
   });
 
   it("updateSession patches fields", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.createSession({ sessionId: "s1", config: testConfig });
     store.updateSession("s1", { config: { ...testConfig, logLevel: "debug" } });
     expect(store.loadSession("s1")!.config.logLevel).toBe("debug");
@@ -50,7 +50,7 @@ describe("SqliteCheckpointStore — sessions", () => {
   });
 
   it("deleteSession removes session", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.createSession({ sessionId: "s1", config: testConfig });
     store.deleteSession("s1");
     expect(store.loadSession("s1")).toBeUndefined();
@@ -59,7 +59,7 @@ describe("SqliteCheckpointStore — sessions", () => {
   });
 
   it("deleteSession on missing id is a no-op", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     expect(() => store.deleteSession("missing")).not.toThrow();
     store.close();
   });
@@ -68,7 +68,7 @@ describe("SqliteCheckpointStore — sessions", () => {
 // --- Messages ---
 describe("SqliteCheckpointStore — messages", () => {
   it("addMessages / loadMessages round-trip", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.createSession({ sessionId: "s1", config: testConfig });
     store.addMessages("s1", [{ role: "user", content: "hello" }, { role: "assistant", content: "hi" }]);
     const msgs = store.loadMessages("s1");
@@ -78,7 +78,7 @@ describe("SqliteCheckpointStore — messages", () => {
   });
 
   it("loadMessages returns empty array for missing session", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     expect(store.loadMessages("missing")).toEqual([]);
     store.close();
   });
@@ -87,7 +87,7 @@ describe("SqliteCheckpointStore — messages", () => {
 // --- Checkpoints ---
 describe("SqliteCheckpointStore — checkpoints", () => {
   it("saveCheckpoint / loadLatestCheckpoint round-trip", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     const frozen = makeFrozen("s1", "t1");
     store.saveCheckpoint(frozen);
     const loaded = store.loadLatestCheckpoint("s1");
@@ -98,7 +98,7 @@ describe("SqliteCheckpointStore — checkpoints", () => {
   });
 
   it("loadCheckpoint by turnId", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.saveCheckpoint(makeFrozen("s1", "t1"));
     store.saveCheckpoint(makeFrozen("s1", "t2"));
     const loaded = store.loadCheckpoint("s1", "t1");
@@ -107,7 +107,7 @@ describe("SqliteCheckpointStore — checkpoints", () => {
   });
 
   it("loadLatestCheckpoint returns undefined for empty session", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     expect(store.loadLatestCheckpoint("missing")).toBeUndefined();
     store.close();
   });
@@ -116,7 +116,7 @@ describe("SqliteCheckpointStore — checkpoints", () => {
 // --- Event Log ---
 describe("SqliteCheckpointStore — event log", () => {
   it("appendEvent / queryEvents round-trip", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.appendEvent({ sessionId: "s1", event: "turn:start", timestamp: 100 });
     store.appendEvent({ sessionId: "s1", event: "turn:end", timestamp: 200 });
     const events = store.queryEvents("s1");
@@ -126,7 +126,7 @@ describe("SqliteCheckpointStore — event log", () => {
   });
 
   it("queryEvents with since filter", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.appendEvent({ sessionId: "s1", event: "a", timestamp: 100 });
     store.appendEvent({ sessionId: "s1", event: "b", timestamp: 200 });
     store.appendEvent({ sessionId: "s1", event: "c", timestamp: 300 });
@@ -135,7 +135,7 @@ describe("SqliteCheckpointStore — event log", () => {
   });
 
   it("queryEvents returns empty for missing session", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     expect(store.queryEvents("missing")).toEqual([]);
     store.close();
   });
@@ -144,7 +144,7 @@ describe("SqliteCheckpointStore — event log", () => {
 // --- Config Snapshots ---
 describe("SqliteCheckpointStore — config snapshots", () => {
   it("saveConfigSnapshot / loadLatestConfigSnapshot round-trip", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.saveConfigSnapshot({ sessionId: "s1", handlers: { name: "test" }, timestamp: 100 });
     const loaded = store.loadLatestConfigSnapshot("s1");
     expect(loaded).toBeDefined();
@@ -153,7 +153,7 @@ describe("SqliteCheckpointStore — config snapshots", () => {
   });
 
   it("loadLatestConfigSnapshot returns undefined for empty session", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     expect(store.loadLatestConfigSnapshot("missing")).toBeUndefined();
     store.close();
   });
@@ -162,7 +162,7 @@ describe("SqliteCheckpointStore — config snapshots", () => {
 // --- Cost Records ---
 describe("SqliteCheckpointStore — cost records", () => {
   it("addCostRecord / loadCostRecords round-trip", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     store.addCostRecord({ sessionId: "s1", turnId: "t1", promptTokens: 100, completionTokens: 50, timestamp: 100 });
     store.addCostRecord({ sessionId: "s1", turnId: "t2", promptTokens: 200, completionTokens: 80, timestamp: 200 });
     const records = store.loadCostRecords("s1");
@@ -173,7 +173,7 @@ describe("SqliteCheckpointStore — cost records", () => {
   });
 
   it("loadCostRecords returns empty for missing session", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     expect(store.loadCostRecords("missing")).toEqual([]);
     store.close();
   });
@@ -182,7 +182,7 @@ describe("SqliteCheckpointStore — cost records", () => {
 // --- Tracer bullet ---
 describe("SqliteCheckpointStore — creation and schema", () => {
   it("creates all 6 tables on initialization", () => {
-    const store = new SqliteCheckpointStore(":memory:");
+    const store = createSqliteStore(":memory:");
     const tables = store.getTableNames();
     expect(tables).toContain("sessions");
     expect(tables).toContain("messages");
@@ -195,7 +195,7 @@ describe("SqliteCheckpointStore — creation and schema", () => {
 
   it("enables WAL mode", () => {
     const dir = mkdtempSync(join(tmpdir(), "proteus-test-"));
-    const store = new SqliteCheckpointStore(join(dir, "test.db"));
+    const store = createSqliteStore(join(dir, "test.db"));
     const mode = store.getJournalMode();
     expect(mode).toBe("wal");
     store.close();

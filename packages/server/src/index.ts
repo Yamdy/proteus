@@ -24,8 +24,6 @@ export type {
   StoreEvent,
   ConfigSnapshot,
   CostRecord,
-  InMemoryCheckpointStore,
-  SqliteCheckpointStore,
   Harness,
   TurnResult,
 } from "@proteus/core";

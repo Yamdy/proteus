@@ -5,7 +5,7 @@ import {
   AgentContext,
   SessionContext,
 } from "./context.js";
-import { InMemoryCheckpointStore } from "./checkpoint-store.js";
+import { createInMemoryStore } from "./checkpoint-store.js";
 import { HandlerEngine } from "./handler-engine.js";
 import type { LLMProvider, LLMMessage } from "./index.js";
 
@@ -76,7 +76,7 @@ describe("SubHarness", () => {
       parentSession,
       parentAgent: makeAgent(),
       isolation: "full",
-      store: new InMemoryCheckpointStore(),
+      store: createInMemoryStore(),
     });
 
     const result = await harness.runChild(makeAgent());
@@ -91,7 +91,7 @@ describe("SubHarness", () => {
       parentSession,
       parentAgent: makeAgent(),
       isolation: "shared",
-      store: new InMemoryCheckpointStore(),
+      store: createInMemoryStore(),
     });
 
     const result = await harness.runChild(makeAgent());
@@ -108,7 +108,7 @@ describe("SubHarness", () => {
       parentSession,
       parentAgent: makeAgent(),
       isolation: "summary",
-      store: new InMemoryCheckpointStore(),
+      store: createInMemoryStore(),
       compact: stubCompact,
     });
 
@@ -123,7 +123,7 @@ describe("SubHarness", () => {
       parentSession,
       parentAgent: makeAgent(),
       isolation: "summary",
-      store: new InMemoryCheckpointStore(),
+      store: createInMemoryStore(),
     });
 
     await expect(harness.runChild(makeAgent())).rejects.toThrow(
@@ -139,7 +139,7 @@ describe("SubHarness", () => {
       parentSession,
       parentAgent: makeAgent(),
       isolation: "full",
-      store: new InMemoryCheckpointStore(),
+      store: createInMemoryStore(),
     });
 
     await harness.runChild(makeAgent());
@@ -156,7 +156,7 @@ describe("SubHarness", () => {
       parentSession,
       parentAgent: makeAgent(),
       isolation: "full",
-      store: new InMemoryCheckpointStore(),
+      store: createInMemoryStore(),
     });
 
     const result = await harness.runChild(makeAgent());
