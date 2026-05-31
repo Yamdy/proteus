@@ -1,4 +1,4 @@
-import type { HandlerContext, TurnContext } from "./context.js";
+import type { HandlerContext } from "./context.js";
 import type { HandlerResult, LLMMessage, Tool, ToolResult } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import { sha256 } from "./utils/hash.js";
@@ -155,6 +155,10 @@ export class LLMInferenceProcessor {
     const tools = ctx.agent.tools;
     const toolDefs = [...tools.values()].map((t) => t.definition);
 
+    // Per-turn callbacks override constructor callbacks (for SSE streaming)
+    const onToken = ctx.turn.onToken ?? this.onToken;
+    const onThinking = ctx.turn.onThinking ?? this.onThinking;
+
     let content = "";
     let thinking = "";
     let toolCalls: any[] = [];
@@ -164,11 +168,11 @@ export class LLMInferenceProcessor {
     for await (const chunk of ctx.agent.llm.chatStream(ctx.turn.messages, toolDefs)) {
       if (chunk.thinking) {
         thinking += chunk.thinking;
-        this.onThinking?.(chunk.thinking);
+        onThinking?.(chunk.thinking);
       }
       if (chunk.content) {
         content += chunk.content;
-        this.onToken?.(chunk.content);
+        onToken?.(chunk.content);
       }
       if (chunk.toolCalls && chunk.toolCalls.length > 0) {
         toolCalls = chunk.toolCalls;
@@ -220,21 +224,21 @@ export class ActionResolutionProcessor {
   }
 }
 
-// --- ExecutionEnvironment ---
+// --- ToolRunner ---
 
-export interface ExecutionEnvironment {
+export interface ToolRunner {
   execute(
     tool: Tool,
     params: Record<string, unknown>,
-    context: TurnContext,
+    context: import("./types.js").ToolContext,
   ): Promise<ToolResult>;
 }
 
-export class LocalExecutionEnvironment implements ExecutionEnvironment {
+export class DirectToolRunner implements ToolRunner {
   async execute(
     tool: Tool,
     params: Record<string, unknown>,
-    context: TurnContext,
+    context: import("./types.js").ToolContext,
   ): Promise<ToolResult> {
     return tool.execute(params, context);
   }
@@ -244,10 +248,10 @@ export class LocalExecutionEnvironment implements ExecutionEnvironment {
 
 export class ToolExecutionProcessor {
   readonly name = "tool_execution";
-  private readonly executionEnv: ExecutionEnvironment;
+  private readonly executionEnv: ToolRunner;
 
-  constructor(executionEnv?: ExecutionEnvironment) {
-    this.executionEnv = executionEnv ?? new LocalExecutionEnvironment();
+  constructor(executionEnv?: ToolRunner) {
+    this.executionEnv = executionEnv ?? new DirectToolRunner();
   }
 
   async handle(ctx: HandlerContext): Promise<HandlerResult> {
@@ -306,7 +310,7 @@ export class ResultObservationProcessor {
 export interface RegisterProcessorsOptions extends ContextAssemblyOptions {
   onToken?: (token: string) => void;
   onThinking?: (token: string) => void;
-  executionEnv?: ExecutionEnvironment;
+  executionEnv?: ToolRunner;
 }
 
 export function registerBuiltInProcessors(engine: HandlerEngine, opts?: RegisterProcessorsOptions): void {

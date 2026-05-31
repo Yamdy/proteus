@@ -5,10 +5,10 @@ import {
   ActionResolutionProcessor,
   ToolExecutionProcessor,
   ResultObservationProcessor,
-  LocalExecutionEnvironment,
+  DirectToolRunner,
   registerBuiltInProcessors,
 } from "./processors.js";
-import type { ExecutionEnvironment } from "./processors.js";
+import type { ToolRunner } from "./processors.js";
 import { AgentContext, SessionContext, TurnContext, HandlerContext } from "./context.js";
 import { HandlerEngine } from "./handler-engine.js";
 import { Harness } from "./harness.js";
@@ -236,19 +236,19 @@ describe("ToolExecutionProcessor", () => {
     expect(ctx.turn.toolResults[0]!.error!.retryable).toBe(false);
   });
 
-  it("defaults to LocalExecutionEnvironment when no executionEnv provided", () => {
+  it("defaults to DirectToolRunner when no executionEnv provided", () => {
     const processor = new ToolExecutionProcessor();
-    // Verify it is usable (LocalExecutionEnvironment delegates to tool.execute)
+    // Verify it is usable (DirectToolRunner delegates to tool.execute)
     expect(processor).toBeDefined();
   });
 
-  it("uses injected ExecutionEnvironment instead of tool.execute()", async () => {
+  it("uses injected ToolRunner instead of tool.execute()", async () => {
     let envExecuted = false;
     const tool: Tool = {
       definition: { name: "search", description: "Search", parameters: {} },
       execute: async () => ({ output: "from-tool" }),
     };
-    const customEnv: ExecutionEnvironment = {
+    const customEnv: ToolRunner = {
       execute: async (_tool, params, _context) => {
         envExecuted = true;
         return { output: `from-env: ${params.query}` };
@@ -266,9 +266,9 @@ describe("ToolExecutionProcessor", () => {
     expect(ctx.turn.toolResults[0]!.output).toBe("from-env: test");
   });
 
-  it("injects custom ExecutionEnvironment into registerBuiltInProcessors", async () => {
+  it("injects custom ToolRunner into registerBuiltInProcessors", async () => {
     let envExecuted = false;
-    const customEnv: ExecutionEnvironment = {
+    const customEnv: ToolRunner = {
       execute: async () => {
         envExecuted = true;
         return { output: "custom-env-result" };
@@ -306,14 +306,14 @@ describe("ToolExecutionProcessor", () => {
   });
 });
 
-describe("LocalExecutionEnvironment", () => {
+describe("DirectToolRunner", () => {
   it("delegates to tool.execute()", async () => {
     const tool: Tool = {
       definition: { name: "echo", description: "Echo", parameters: {} },
       execute: async (params) => ({ output: `echo: ${params.msg}` }),
     };
     const { ctx } = makeCtx();
-    const env = new LocalExecutionEnvironment();
+    const env = new DirectToolRunner();
 
     const result = await env.execute(tool, { msg: "hello" }, ctx.turn);
 
@@ -326,7 +326,7 @@ describe("LocalExecutionEnvironment", () => {
       execute: async () => { throw new Error("boom"); },
     };
     const { ctx } = makeCtx();
-    const env = new LocalExecutionEnvironment();
+    const env = new DirectToolRunner();
 
     await expect(env.execute(tool, {}, ctx.turn)).rejects.toThrow("boom");
   });

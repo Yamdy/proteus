@@ -50,7 +50,7 @@ export { SqliteCheckpointStore, createSqliteStore, SqliteSessionStore, SqliteMes
 
 // --- Harness ---
 export { Harness } from "./harness.js";
-export type { TurnResult, ChainResult, ChainOptions, HarnessOptions } from "./harness.js";
+export type { TurnResult, ChainResult, ChainOptions, HarnessOptions, TurnCallbacks } from "./harness.js";
 
 // --- SubHarness ---
 export { SubHarness } from "./sub-harness.js";

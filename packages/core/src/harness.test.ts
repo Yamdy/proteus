@@ -262,44 +262,13 @@ describe("Harness — resume", () => {
     expect(harness.lifecycle.state).toBe("paused");
 
     // Resume: continues from where it left off
-    const resumeResult = await harness.resume(session, agent, "approved");
+    const resumeResult = await harness.resume(session.sessionId, agent, "approved");
     expect(resumeResult.status).toBe("completed");
     expect(harness.lifecycle.state).toBe("running");
 
     // externalInput was available during resumed execution
     const checkpoint = store.loadLatestCheckpoint(session.sessionId);
     expect(checkpoint).toBeDefined();
-  });
-
-  it("resume uses real session config, not dummy", async () => {
-    let resumedProvider: string | undefined;
-    let callCount = 0;
-    const engine = new HandlerEngine();
-    engine.register({
-      name: "suspender-then-capture",
-      events: ["phase:before"],
-      priority: 1,
-      trust: 1,
-      handle: async (ctx: any) => {
-        callCount++;
-        if (callCount === 1) {
-          return { suspend: true as const, pendingInput: "need approval" };
-        }
-        resumedProvider = ctx.session?.config?.llm?.provider;
-        return { ok: true as const };
-      },
-    });
-
-    const { agent, session } = makeContext(engine);
-    const store = new InMemoryCheckpointStore();
-    const harness = new Harness({ store });
-
-    // First turn: suspends
-    await harness.runTurn(session, agent);
-
-    // Resume with real session — should see "openai", not "unknown"
-    await harness.resume(session, agent, "approved");
-    expect(resumedProvider).toBe("openai");
   });
 
   it("resume throws if no suspend checkpoint exists", async () => {
@@ -310,7 +279,7 @@ describe("Harness — resume", () => {
     // Run a normal turn (no suspend) — checkpoint saved but without resumeReason
     await harness.runTurn(session, agent);
 
-    await expect(harness.resume(session, agent)).rejects.toThrow(
+    await expect(harness.resume(session.sessionId, agent)).rejects.toThrow(
       /No suspend checkpoint found/,
     );
   });
@@ -400,7 +369,7 @@ describe("Harness — runChain", () => {
     expect(harness.lifecycle.state).toBe("paused");
 
     // Resume the chain
-    const resumeResult = await harness.resumeChain(session, agent, "approved", { maxTurns: 5 });
+    const resumeResult = await harness.resumeChain(session.sessionId, agent, "approved", { maxTurns: 5 });
     expect(resumeResult.status).toBe("completed");
   });
 

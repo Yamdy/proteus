@@ -2,7 +2,7 @@ import { SessionContext } from "./context.js";
 import type { AgentContext } from "./context.js";
 import type { LLMMessage } from "./types.js";
 import { Harness } from "./harness.js";
-import type { CheckpointStore } from "./checkpoint-store.js";
+import type { CheckpointLog } from "./checkpoint-store.js";
 
 export type IsolationMode = "full" | "shared" | "summary";
 
@@ -13,7 +13,7 @@ export interface SubHarnessOptions {
   parentSession: SessionContext;
   parentAgent: AgentContext;
   isolation: IsolationMode;
-  store: CheckpointStore;
+  store: CheckpointLog;
   /** Compaction function for summary mode. Required when isolation="summary". */
   compact?: CompactionFn;
 }

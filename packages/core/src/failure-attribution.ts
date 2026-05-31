@@ -1,4 +1,4 @@
-import type { CheckpointStore } from "./checkpoint-store.js";
+import type { EventLog } from "./checkpoint-store.js";
 
 // --- Types ---
 
@@ -83,18 +83,18 @@ export function attributeFailure(input: AttributeFailureInput): AttributionRecor
 
 export class InMemoryAttributionStore implements AttributionStore {
   private records: AttributionRecord[] = [];
-  private readonly checkpointStore?: CheckpointStore;
+  private readonly eventLog?: EventLog;
 
-  constructor(checkpointStore?: CheckpointStore) {
-    this.checkpointStore = checkpointStore;
+  constructor(eventLog?: EventLog) {
+    this.eventLog = eventLog;
   }
 
   save(record: AttributionRecord): void {
     this.records.push(record);
 
-    // Persist to CheckpointStore if available
-    if (this.checkpointStore && record.sessionId) {
-      this.checkpointStore.appendEvent({
+    // Persist to EventLog if available
+    if (this.eventLog && record.sessionId) {
+      this.eventLog.appendEvent({
         sessionId: record.sessionId,
         event: "attribution",
         payload: record,

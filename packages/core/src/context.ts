@@ -109,6 +109,8 @@ export class TurnContext {
   toolCalls?: ToolCall[];
   actions?: ToolCall[];
   externalInput?: unknown;
+  onToken?: (token: string) => void;
+  onThinking?: (token: string) => void;
 
   constructor(params: {
     turnId: string;
@@ -118,6 +120,10 @@ export class TurnContext {
     this.turnId = params.turnId;
     this.agent = params.agent;
     this.session = params.session;
+  }
+
+  get sessionId(): string {
+    return this.session.sessionId;
   }
 
   addMessage(msg: LLMMessage): void {
