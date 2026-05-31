@@ -3,6 +3,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { McpServer } from "./server.js";
+import { ToolRegistry } from "@proteus/core";
 import type { Tool } from "@proteus/core";
 import type { JsonRpcRequest, JsonRpcResponse } from "./types.js";
 import { MCP_METHODS } from "./types.js";
@@ -52,6 +53,37 @@ describe("McpServer", () => {
       expect(tools).toHaveLength(2);
       expect(tools.map((t: any) => t.name)).toContain("a");
       expect(tools.map((t: any) => t.name)).toContain("b");
+    });
+
+    it("registerFromRegistry imports all tools from a ToolRegistry", async () => {
+      const registry = new ToolRegistry();
+      registry.register(makeTool("alpha", "a"));
+      registry.register(makeTool("beta", "b"));
+      registry.register(makeTool("gamma", "g"));
+
+      const server = new McpServer();
+      server.registerFromRegistry(registry);
+
+      const response = await server.handleMessage({
+        jsonrpc: "2.0", id: 1, method: MCP_METHODS.LIST_TOOLS,
+      });
+
+      const tools = (response!.result as any).tools;
+      expect(tools).toHaveLength(3);
+      expect(tools.map((t: any) => t.name)).toEqual(expect.arrayContaining(["alpha", "beta", "gamma"]));
+    });
+
+    it("registerFromRegistry with empty registry registers no tools", async () => {
+      const registry = new ToolRegistry();
+      const server = new McpServer();
+      server.registerFromRegistry(registry);
+
+      const response = await server.handleMessage({
+        jsonrpc: "2.0", id: 1, method: MCP_METHODS.LIST_TOOLS,
+      });
+
+      const tools = (response!.result as any).tools;
+      expect(tools).toHaveLength(0);
     });
   });
 

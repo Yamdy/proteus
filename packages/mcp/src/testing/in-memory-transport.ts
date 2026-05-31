@@ -21,6 +21,7 @@ export function createTransportPair(): {
 
   let clientWaiter: ((msg: string) => void) | null = null;
   let serverWaiter: ((msg: string) => void) | null = null;
+  let closed = false;
 
   const client: ClientTransport = {
     async sendRequest(request: JsonRpcRequest): Promise<JsonRpcResponse> {
@@ -52,16 +53,30 @@ export function createTransportPair(): {
     },
 
     async close() {
+      closed = true;
       clientToServer.length = 0;
       serverToClient.length = 0;
+      if (serverWaiter) {
+        const w = serverWaiter;
+        serverWaiter = null;
+        // Flush server waiter with a sentinel that receive() can reject
+        w("__closed__");
+      }
     },
   };
 
   const server: ServerTransport = {
     async receive(): Promise<JsonRpcRequest | JsonRpcNotification> {
+      if (closed) throw new Error("Transport closed");
       if (clientToServer.length > 0) return JSON.parse(clientToServer.shift()!);
-      return new Promise<JsonRpcRequest | JsonRpcNotification>((resolve) => {
-        serverWaiter = (data: string) => resolve(JSON.parse(data));
+      return new Promise<JsonRpcRequest | JsonRpcNotification>((resolve, reject) => {
+        serverWaiter = (data: string) => {
+          if (data === "__closed__") {
+            reject(new Error("Transport closed"));
+          } else {
+            resolve(JSON.parse(data));
+          }
+        };
       });
     },
 
@@ -77,8 +92,14 @@ export function createTransportPair(): {
     },
 
     async close() {
+      closed = true;
       clientToServer.length = 0;
       serverToClient.length = 0;
+      if (clientWaiter) {
+        const w = clientWaiter;
+        clientWaiter = null;
+        w(JSON.stringify({ jsonrpc: "2.0", id: 0, error: { code: -32000, message: "Transport closed" } }));
+      }
     },
   };
 
