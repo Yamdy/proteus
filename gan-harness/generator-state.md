@@ -1,24 +1,28 @@
-# Generator State -- Iteration 002
+# Generator State -- Iteration 005
 
 ## What Was Built
-- `packages/studio/src/stores/selfModifyStore.ts` — Pinia store with SelfModifyEntry/DiffBlock types, entries list, selectedEntryId, filterAction/filterTime/searchQuery filters, filteredEntries computed, fetchEntries(sessionId), rollback(entryId), generateDiff utility
-- `packages/studio/src/components/self-modify/SelfModifyHistory.vue` — git-log style timeline with vertical line, color-coded dots per action (emerald/amber/red), filter pills (all/register/replace/remove), time filters (all/1h/24h/7d), search input, timestamp relative formatting, entry count footer
-- `packages/studio/src/components/self-modify/DiffViewer.vue` — HTML-based diff table with old/new line number columns, +/-/space prefixes, red/green background highlighting for removed/added lines, stats header showing +N/-N counts
-- `packages/studio/src/components/self-modify/RollbackButton.vue` — button with Teleport-based confirmation dialog, warning icon, handler name display, cancel/confirm actions, loading spinner state, disabled when already rolled back
-- `packages/studio/src/views/SelfModifyView.vue` — rewritten from stub: history list on left panel (w-80 lg:w-96), diff viewer on right panel, entry header with action badge + handler name, rollback button, meta footer (id, snapshot, trust, status), responsive with mobile back button
+- Enhanced `connectionStore` (`packages/studio/src/stores/connectionStore.ts`) with subscribe/unsubscribe actions, exponential backoff reconnect (1s-30s cap), heartbeat ping every 30s, typed event dispatching for phase/tool_call/cost WS messages, and handler registries (onPhase/onToolCall/onCostUpdate)
+- `useWebSocket` composable (`packages/studio/src/composables/useWebSocket.ts`) -- wraps connectionStore with typed callbacks (onPhase, onToolCall, onCostUpdate), auto session subscribe/unsubscribe via reactive watch, cleanup on unmount
+- `ConnectionIndicator` (`packages/studio/src/components/common/ConnectionIndicator.vue`) -- w-2 h-2 rounded-full dot: green=connected, yellow=reconnecting/connecting, red=error, gray=disconnected; animated ping pulse; hover tooltip showing status text and reconnect attempt count
+- `EventToast` (`packages/studio/src/components/common/EventToast.vue`) -- toast notifications in fixed bottom-4 right-4 z-50 container; bg-gray-800 border-l-4 color-coded (blue=phase, violet=tool_call, amber=cost, red=error, gray=info); auto-dismiss 5s; slide-in/out animation; max 5 visible; dismiss button per toast
+- `toastStore` (`packages/studio/src/stores/toastStore.ts`) -- manages toast lifecycle with auto-dismiss timers and max-visible cap of 5
+- Wired into `AppLayout` (`packages/studio/src/components/layout/AppLayout.vue`) -- connects WS on mount, registers global toast handlers for all three event types (phase, tool_call, cost)
+- Wired into `ChatView` (`packages/studio/src/views/ChatView.vue`) -- auto-subscribes/unsubscribes to active session via computed from sessionStore
+- Updated `AppSidebar` (`packages/studio/src/components/layout/AppSidebar.vue`) -- replaced inline connection dot with ConnectionIndicator component
 
 ## What Changed This Iteration
-- Replaced: stub SelfModifyView with full split-pane implementation
-- Added: 3 new components under `src/components/self-modify/`
-- Added: new Pinia store `selfModifyStore.ts`
-- Route `/self-modify` was already wired in the router; no router changes needed
+- [Added: connectionStore subscribe/unsubscribe, heartbeat, typed event dispatch, "reconnecting" status]
+- [Added: useWebSocket composable]
+- [Added: ConnectionIndicator component]
+- [Added: EventToast component with toastStore]
+- [Wired: AppLayout connects + global toast handlers]
+- [Wired: ChatView subscribes to active session]
+- [Replaced: AppSidebar inline dot with ConnectionIndicator]
 
 ## Known Issues
-- Backend API endpoints GET /api/traces/:sessionId and POST /api/self-modify/rollback need implementation on the server side
-- Diff data (entry.diff) needs backend to populate from config snapshots
-- Pre-existing type error in `src/components/config/HandlerDetailPanel.vue(258,44)` (unrelated)
+- Two pre-existing vue-tsc errors in unrelated files (Level0Form.vue, SelfModifyHistory.vue)
 
 ## Dev Server
-- URL: http://localhost:3000 (vite.config.ts proxy target)
-- Status: build verified (`vite build` succeeds, `vue-tsc` clean for new files)
-- Command: `npm run dev` from `packages/studio`
+- URL: http://localhost:3000
+- Status: build verified (vite build passes cleanly)
+- Command: `cd packages/studio && npm run dev`
