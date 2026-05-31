@@ -248,7 +248,7 @@ export class ProteusSDK {
    *         harness was never suspended for this session).
    */
   async resume(sessionId: string, input?: unknown): Promise<TurnResult> {
-    const session = this.requireSession(sessionId);
+    this.requireSession(sessionId);
     const agent = this.buildAgentContext();
     this.suspendedSessions.delete(sessionId);
     return this.harness.resume(sessionId, agent, input);

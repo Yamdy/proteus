@@ -209,17 +209,12 @@ describe("ProteusSDK — suspend / resume", () => {
       const sdk = new ProteusSDK();
       sdk.createSession("s1", makeConfig());
 
-      let receivedInput: unknown = undefined;
-
       sdk.handlerEngine.register({
         name: "suspend-capture-resume",
         events: ["phase:before"],
         priority: 1,
         trust: 1,
-        handle: async (ctx: any): Promise<HandlerResult> => {
-          if (ctx.turn?.externalInput !== undefined) {
-            receivedInput = ctx.turn.externalInput;
-          }
+        handle: async (_ctx: any): Promise<HandlerResult> => {
           return { ok: true };
         },
       });
