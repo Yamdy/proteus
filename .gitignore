@@ -142,9 +142,22 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Turborepo cache
-.turbo
-
 # Git worktrees
 .worktrees/
 .claude/worktrees/
+
+# Playwright
+playwright-report/
+test-results/
+*.zip
+*.webm
+
+# Claude workflows
+.claude/workflows/
+
+# Turborepo
+.turbo/
+
+# GitNexus
+.gitnexus/
+.playwright-mcp/
