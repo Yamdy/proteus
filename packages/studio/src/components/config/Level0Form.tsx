@@ -14,12 +14,14 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
   const [llm, setLlm] = useState<LLMConfig>(config.llm);
   const [tools, setTools] = useState<ToolConfig[]>(config.tools);
   const [logLevel, setLogLevel] = useState(config.logLevel);
+  const [systemPrompt, setSystemPrompt] = useState(config.systemPrompt);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     setLlm(config.llm);
     setTools(config.tools);
     setLogLevel(config.logLevel);
+    setSystemPrompt(config.systemPrompt);
     setDirty(false);
   }, [config]);
 
@@ -43,7 +45,7 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
   };
 
   const handleSave = async () => {
-    await onSave({ llm, tools, logLevel });
+    await onSave({ llm, tools, logLevel, systemPrompt });
     setDirty(false);
   };
 
@@ -51,6 +53,7 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
     setLlm(config.llm);
     setTools(config.tools);
     setLogLevel(config.logLevel);
+    setSystemPrompt(config.systemPrompt);
     setDirty(false);
   };
 
@@ -187,6 +190,29 @@ export default function Level0Form({ config, saving, onSave }: Level0FormProps) 
           ))}
         </div>
       </section>
+
+      {/* System Prompt */}
+      <div className="glass-panel rounded-xl p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-200">System Prompt</h3>
+            <p className="text-[10px] text-gray-600 mt-0.5">
+              Instructions that define the assistant's behavior
+            </p>
+          </div>
+        </div>
+        <textarea
+          value={systemPrompt}
+          onChange={(e) => {
+            setSystemPrompt(e.target.value);
+            markDirty();
+          }}
+          rows={6}
+          data-testid="system-prompt-input"
+          className="w-full resize-none rounded-lg border border-white/[0.06] bg-surface-50/80 px-4 py-3 text-sm text-gray-100 placeholder-gray-600 outline-none transition-all duration-200 focus:border-cyan-500/30 focus:shadow-[0_0_12px_rgba(34,211,238,0.08)]"
+          placeholder="Enter system prompt..."
+        />
+      </div>
 
       {/* Actions */}
       <div className="flex gap-3 border-t border-white/[0.04] pt-6">

@@ -48,6 +48,7 @@ const mockConfig = {
       { name: "calculator", enabled: false, description: "Math calculator" },
     ],
     logLevel: "info",
+    systemPrompt: "You are a helpful AI assistant.",
   },
   level1: {
     handlers: [

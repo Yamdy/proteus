@@ -5,45 +5,39 @@ import { useSelfModify } from "../../hooks/useSelfModify";
 import PhaseTimeline from "../observability/PhaseTimeline";
 import CostDashboard from "../observability/CostDashboard";
 
-type InfoTab = "phase" | "costs" | "config" | "modify";
-
-const TABS: { id: InfoTab; label: string; icon: string }[] = [
-  { id: "phase", label: "Phase", icon: "◈" },
-  { id: "costs", label: "Costs", icon: "◈" },
-  { id: "config", label: "Config", icon: "◈" },
-  { id: "modify", label: "Modify", icon: "◈" },
-];
+function CollapsibleSection({ title, defaultOpen, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <div className="border-b border-white/[0.04]">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-gray-300 hover:text-gray-100 transition-colors"
+      >
+        {title}
+        <svg className={`h-3 w-3 text-gray-600 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && <div className="max-h-64 overflow-y-auto">{children}</div>}
+    </div>
+  );
+}
 
 export default function InfoPanel() {
-  const [tab, setTab] = useState<InfoTab>("phase");
-
   return (
-    <div data-testid="info-panel" className="flex h-full w-80 flex-col glass-panel-strong">
-      {/* Tab bar */}
-      <div className="flex border-b border-white/[0.04]">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            data-testid={`info-tab-${t.id}`}
-            className={`flex-1 py-2 text-[10px] font-medium transition-all duration-200 ${
-              tab === t.id
-                ? "text-cyan-300 border-b border-cyan-400/60"
-                : "text-gray-600 hover:text-gray-400"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
-        {tab === "phase" && <PhaseSection />}
-        {tab === "costs" && <CostsSection />}
-        {tab === "config" && <ConfigSection />}
-        {tab === "modify" && <ModifySection />}
-      </div>
+    <div data-testid="info-panel" className="flex h-full w-80 flex-col glass-panel-strong overflow-y-auto">
+      <CollapsibleSection title="Phase Timeline" defaultOpen={true}>
+        <PhaseSection />
+      </CollapsibleSection>
+      <CollapsibleSection title="Configuration" defaultOpen={true}>
+        <ConfigSection />
+      </CollapsibleSection>
+      <CollapsibleSection title="Costs">
+        <CostsSection />
+      </CollapsibleSection>
+      <CollapsibleSection title="Self-Modify">
+        <ModifySection />
+      </CollapsibleSection>
     </div>
   );
 }
