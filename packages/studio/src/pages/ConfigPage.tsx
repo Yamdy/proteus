@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useConfig } from "../hooks/useConfig";
 import Level0Form from "../components/config/Level0Form";
 import Level1FlowEditor from "../components/config/Level1FlowEditor";
@@ -25,7 +26,16 @@ const TABS: { id: ConfigTab; label: string; description: string }[] = [
 ];
 
 export default function ConfigPage() {
-  const [activeTab, setActiveTab] = useState<ConfigTab>("level0");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialTab: ConfigTab = location.pathname.includes("level1") ? "level1"
+    : location.pathname.includes("level2") ? "level2" : "level0";
+  const [activeTab, setActiveTab] = useState<ConfigTab>(initialTab);
+
+  const handleTabChange = (tab: ConfigTab) => {
+    setActiveTab(tab);
+    navigate(`/config/${tab === "level0" ? "" : tab}`, { replace: true });
+  };
   const {
     config,
     loading,
@@ -88,7 +98,7 @@ export default function ConfigPage() {
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               data-testid={`config-tab-${tab.id}`}
               className={`relative px-5 py-3 text-sm font-medium transition-all duration-200 ${
                 activeTab === tab.id
