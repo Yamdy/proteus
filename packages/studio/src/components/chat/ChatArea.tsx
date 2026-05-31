@@ -3,7 +3,12 @@ import { useChat } from "../../hooks/useChat";
 import { useSessionStore } from "../../stores/sessionStore";
 import MessageBubble from "./MessageBubble";
 
-export default function ChatArea() {
+interface ChatAreaProps {
+  onToggleInfo?: () => void;
+  showInfo?: boolean;
+}
+
+export default function ChatArea({ onToggleInfo, showInfo }: ChatAreaProps) {
   const { currentSession, messages } = useSessionStore();
   const { sendMessage, streamResponse, cancelStream } = useChat();
   const [input, setInput] = useState("");
@@ -108,6 +113,7 @@ export default function ChatArea() {
             {currentMessages.length !== 1 ? "s" : ""}
           </p>
         </div>
+        <div className="flex items-center gap-2">
         {isStreaming && (
           <button
             onClick={handleCancel}
@@ -118,6 +124,23 @@ export default function ChatArea() {
             Stop
           </button>
         )}
+        {onToggleInfo && (
+          <button
+            onClick={onToggleInfo}
+            data-testid="toggle-info-btn"
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-all ${
+              showInfo
+                ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
+                : "border-white/[0.06] bg-surface-50/50 text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+            </svg>
+            Info
+          </button>
+        )}
+        </div>
       </div>
 
       {/* Messages */}
