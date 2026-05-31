@@ -1,7 +1,10 @@
 // @proteus/server — Standalone entry point for starting the server
 
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import {
   createInMemoryStore,
+  createSqliteStore,
   createProvider,
   MetricsCollector,
 } from "@proteus/core";
@@ -26,34 +29,12 @@ if (!llm) {
 }
 
 // --- Stores ---
-const store = createInMemoryStore();
-
-// --- Seed demo cost data for Studio dashboard ---
-const demoSessions = ["demo-session-1", "demo-session-2"];
-for (const sid of demoSessions) {
-  store.createSession({ sessionId: sid, config: { sessionId: sid } as any });
+const dbPath = process.env.PROTEUS_DB_PATH ?? "./data/proteus.db";
+const useMemory = process.env.PROTEUS_STORE === "memory";
+if (!useMemory) {
+  mkdirSync(dirname(dbPath), { recursive: true });
 }
-store.addCostRecord({
-  sessionId: "demo-session-1",
-  turnId: "turn-1",
-  promptTokens: 1500,
-  completionTokens: 800,
-  timestamp: Date.now() - 300_000,
-});
-store.addCostRecord({
-  sessionId: "demo-session-1",
-  turnId: "turn-2",
-  promptTokens: 2200,
-  completionTokens: 1200,
-  timestamp: Date.now() - 120_000,
-});
-store.addCostRecord({
-  sessionId: "demo-session-2",
-  turnId: "turn-1",
-  promptTokens: 900,
-  completionTokens: 500,
-  timestamp: Date.now() - 60_000,
-});
+const store = useMemory ? createInMemoryStore() : createSqliteStore(dbPath);
 
 const metrics = new MetricsCollector();
 

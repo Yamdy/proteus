@@ -69,13 +69,15 @@ export class EventBus {
 // --- WS protocol types ---
 
 interface ClientMessage {
-  action: "subscribe" | "unsubscribe";
-  sessionId: string;
+  action?: "subscribe" | "unsubscribe";
+  type?: "subscribe" | "unsubscribe";
+  sessionId?: string;
+  channels?: string[];
 }
 
 interface ServerPush {
-  event: string;
-  payload?: unknown;
+  type: string;
+  data?: unknown;
   timestamp: number;
 }
 
@@ -107,11 +109,13 @@ export async function registerWsRoutes(
           return;
         }
 
-        if (msg.action === "subscribe" && msg.sessionId) {
-          const unsub = eventBus.subscribe(msg.sessionId, (evt) => {
-            const push: ServerPush = {
-              event: evt.event,
-              payload: evt.payload,
+        // Support both formats: {action:"subscribe", sessionId} and {type:"subscribe", channels:[...]}
+        if (msg.action === "subscribe" || msg.type === "subscribe") {
+          // If no sessionId, subscribe to all events (global)
+          const unsub = eventBus.subscribeAll((evt) => {
+            const push = {
+              type: evt.event,
+              data: evt.payload,
               timestamp: evt.timestamp,
             };
             try {
@@ -122,20 +126,14 @@ export async function registerWsRoutes(
           });
           unsubs.push(unsub);
 
-          // Acknowledge subscription
           socket.send(
             JSON.stringify({
-              action: "subscribed",
-              sessionId: msg.sessionId,
+              type: "subscribed",
+              channels: msg.channels ?? ["all"],
             }),
           );
-        } else if (msg.action === "unsubscribe" && msg.sessionId) {
-          socket.send(
-            JSON.stringify({
-              action: "unsubscribed",
-              sessionId: msg.sessionId,
-            }),
-          );
+        } else if (msg.action === "unsubscribe" || msg.type === "unsubscribe") {
+          // Clean up handled by close
         }
       });
 
