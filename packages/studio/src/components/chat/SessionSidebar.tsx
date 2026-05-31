@@ -10,6 +10,7 @@ export default function SessionSidebar() {
     createSession,
     deleteSession,
     setCurrentSession,
+    fetchMessages,
   } = useSession();
 
   const [loading, setLoading] = useState(false);
@@ -42,6 +43,7 @@ export default function SessionSidebar() {
 
   const handleSelect = (session: Session) => {
     setCurrentSession(session);
+    fetchMessages(session.id);
   };
 
   return (

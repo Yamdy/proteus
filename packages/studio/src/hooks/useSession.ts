@@ -12,6 +12,7 @@ export function useSession() {
     addSession,
     removeSession,
     setCurrentSession,
+    setMessages,
   } = useSessionStore();
 
   const [loading, setLoading] = useState(false);
@@ -77,6 +78,27 @@ export function useSession() {
     [removeSession],
   );
 
+  const fetchMessages = useCallback(
+    async (sessionId: string) => {
+      try {
+        const data = await apiFetch<Array<{ role: string; content: string }>>(
+          `${API_BASE}/${sessionId}/messages`,
+        );
+        const messages = data.map((msg, i) => ({
+          id: `hist-${sessionId}-${i}`,
+          sessionId,
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+          timestamp: Date.now() - (data.length - i) * 60000,
+        }));
+        setMessages(sessionId, messages);
+      } catch (err: unknown) {
+        console.error("fetchMessages error:", err);
+      }
+    },
+    [setMessages],
+  );
+
   return {
     sessions,
     currentSession,
@@ -85,6 +107,7 @@ export function useSession() {
     fetchSessions,
     createSession,
     deleteSession,
+    fetchMessages,
     setCurrentSession,
   };
 }

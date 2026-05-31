@@ -135,6 +135,25 @@ export async function sessionRoutes(
     },
   );
 
+  // GET /sessions/:id/messages — fetch message history for a session
+  app.get<{ Params: SessionParams }>(
+    "/:id/messages",
+    async (request, reply) => {
+      const { id } = request.params;
+      const session = sessionManager.get(id);
+
+      if (!session) {
+        return reply.status(404).send({
+          error: "Not Found",
+          message: `Session "${id}" not found`,
+        });
+      }
+
+      const messages = session.workingMemory.getMessages();
+      return reply.send(messages);
+    },
+  );
+
   // POST /sessions/:id/stream — SSE streaming chat (matches Studio frontend)
   app.post<{ Params: SessionParams; Body: { content?: string; message?: string } }>(
     "/:id/stream",
