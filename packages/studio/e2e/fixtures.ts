@@ -154,8 +154,8 @@ export const test = base.extend<StudioFixtures>({
 
   waitForAppReady: async ({ page }, use) => {
     const waitForAppReady = async () => {
-      await page.waitForLoadState("networkidle");
-      await page.locator("#root > *").first().waitFor({ state: "attached" });
+      await page.waitForLoadState("domcontentloaded");
+      await page.locator("#root > *").first().waitFor({ state: "attached", timeout: 15_000 });
     };
     await use(waitForAppReady);
   },
@@ -163,7 +163,7 @@ export const test = base.extend<StudioFixtures>({
   gotoPage: async ({ page }, use) => {
     const gotoPage = async (path: string) => {
       await page.goto(path);
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("domcontentloaded");
     };
     await use(gotoPage);
   },

@@ -35,7 +35,7 @@ test.describe("Observability Module", () => {
 
   test("Phase Timeline tab is active by default", async ({ page }) => {
     const phasesTab = page.locator('[data-testid="obs-tab-phases"]');
-    await expect(phasesTab).toHaveClass(/border-white/);
+    await expect(phasesTab).toHaveClass(/border-cyan-400/);
 
     const phaseTimeline = page.locator('[data-testid="phase-timeline"]');
     await expect(phaseTimeline).toBeVisible();
@@ -110,7 +110,7 @@ test.describe("Observability Module", () => {
     await page.locator('[data-testid="obs-tab-tools"]').click();
 
     const toolsTab = page.locator('[data-testid="obs-tab-tools"]');
-    await expect(toolsTab).toHaveClass(/border-white/);
+    await expect(toolsTab).toHaveClass(/border-cyan-400/);
 
     // Should show message to select a trace first
     await expect(
@@ -356,6 +356,6 @@ test.describe("Costs Module", () => {
     await tokensBtn.click();
 
     // The button should now be active
-    await expect(tokensBtn).toHaveClass(/bg-gray-700/);
+    await expect(tokensBtn).toHaveClass(/bg-cyan-500\/10/);
   });
 });

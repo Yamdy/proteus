@@ -40,7 +40,7 @@ test.describe("Navigation and Routing", () => {
     await page.locator('[data-testid="nav-chat"]').click();
     await expect(page).toHaveURL(/\/chat$/);
     await expect(page.locator('[data-testid="nav-chat"]')).toHaveClass(
-      /bg-gray-800/,
+      /bg-cyan-500/,
     );
   });
 
@@ -50,7 +50,7 @@ test.describe("Navigation and Routing", () => {
     await page.locator('[data-testid="nav-config"]').click();
     await expect(page).toHaveURL(/\/config/);
     await expect(page.locator('[data-testid="nav-config"]')).toHaveClass(
-      /bg-gray-800/,
+      /bg-cyan-500/,
     );
   });
 
@@ -61,7 +61,7 @@ test.describe("Navigation and Routing", () => {
     await expect(page).toHaveURL(/\/self-modify$/);
     await expect(
       page.locator('[data-testid="nav-self-modify"]'),
-    ).toHaveClass(/bg-gray-800/);
+    ).toHaveClass(/bg-cyan-500/);
   });
 
   test("navigates to /observability and highlights nav item", async ({
@@ -71,7 +71,7 @@ test.describe("Navigation and Routing", () => {
     await expect(page).toHaveURL(/\/observability$/);
     await expect(
       page.locator('[data-testid="nav-observability"]'),
-    ).toHaveClass(/bg-gray-800/);
+    ).toHaveClass(/bg-cyan-500/);
   });
 
   test("navigates to /costs and highlights Costs nav item", async ({
@@ -80,7 +80,7 @@ test.describe("Navigation and Routing", () => {
     await page.locator('[data-testid="nav-costs"]').click();
     await expect(page).toHaveURL(/\/costs$/);
     await expect(page.locator('[data-testid="nav-costs"]')).toHaveClass(
-      /bg-gray-800/,
+      /bg-cyan-500/,
     );
   });
 
@@ -109,15 +109,19 @@ test.describe("Navigation and Routing", () => {
     await expect(sidebar).toBeVisible();
 
     await page.locator('[data-testid="nav-config"]').click();
+    await expect(page).toHaveURL(/\/config/);
     await expect(sidebar).toBeVisible();
 
     await page.locator('[data-testid="nav-self-modify"]').click();
+    await expect(page).toHaveURL(/\/self-modify/);
     await expect(sidebar).toBeVisible();
 
     await page.locator('[data-testid="nav-observability"]').click();
+    await expect(page).toHaveURL(/\/observability/);
     await expect(sidebar).toBeVisible();
 
     await page.locator('[data-testid="nav-costs"]').click();
+    await expect(page).toHaveURL(/\/costs/);
     await expect(sidebar).toBeVisible();
   });
 });

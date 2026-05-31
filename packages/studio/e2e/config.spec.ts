@@ -42,7 +42,7 @@ test.describe("Config Module", () => {
     page,
   }) => {
     const level0Tab = page.locator('[data-testid="config-tab-level0"]');
-    await expect(level0Tab).toHaveClass(/text-white/);
+    await expect(level0Tab).toHaveClass(/text-cyan-100/);
 
     const level0Form = page.locator('[data-testid="level0-form"]');
     await expect(level0Form).toBeVisible();
@@ -85,7 +85,7 @@ test.describe("Config Module", () => {
 
     // One of the buttons should be active (have the selected style)
     const activeButton = page.locator(
-      '[data-testid^="log-level-"].bg-blue-600',
+      '[data-testid^="log-level-"].bg-cyan-500\\/10',
     );
     await expect(activeButton).toBeVisible();
   });
@@ -109,7 +109,7 @@ test.describe("Config Module", () => {
     );
     await saveBtn.click();
     const response = await responsePromise;
-    expect(response.request().method()).toBe("PUT");
+    expect(response.request().method()).toBe("POST");
 
     // Restore original value
     await modelInput.clear();
@@ -127,7 +127,7 @@ test.describe("Config Module", () => {
     await page.locator('[data-testid="log-level-debug"]').click();
     await expect(
       page.locator('[data-testid="log-level-debug"]'),
-    ).toHaveClass(/bg-blue-600/);
+    ).toHaveClass(/bg-cyan-500\/10/);
   });
 
   test("switches to Level 1 tab and shows handler pipeline", async ({
