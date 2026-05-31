@@ -37,6 +37,7 @@ export interface ServerOptions {
   host?: string;
   cors?: boolean;
   store?: SessionStore;
+  sessionStore?: SessionStore;
   metrics?: MetricsCollector;
   costStore?: CostStore;
   eventLog?: EventLog;
@@ -102,7 +103,7 @@ export class ProteusServer {
   }
 
   private registerRoutes(options: ServerOptions): void {
-    // Health endpoint
+    // Health endpoint (no /api prefix — used by load balancers)
     this.app.get("/health", async () => {
       return {
         status: "ok",
@@ -111,53 +112,57 @@ export class ProteusServer {
       };
     });
 
-    // Session CRUD routes
-    this.app.register(sessionRoutes, {
-      prefix: "/sessions",
-      sessionManager: this._sessionManager,
-    });
+    // All API routes under /api prefix to match Studio proxy expectations
+    this.app.register(async (api) => {
+      // Session CRUD routes
+      api.register(sessionRoutes, {
+        prefix: "/sessions",
+        sessionManager: this._sessionManager,
+      });
 
-    // Status and config endpoints
-    const statusDeps: StatusRouteDeps = {
-      metrics: options.metrics,
-      lifecycle: options.lifecycle,
-      configManager: options.configManager,
-      sessionId: options.sessionId,
-    };
-    this.app.register(async (app) => registerStatusRoutes(app, statusDeps));
+      // Status and config endpoints
+      const statusDeps: StatusRouteDeps = {
+        metrics: options.metrics,
+        lifecycle: options.lifecycle,
+        configManager: options.configManager,
+        sessionId: options.sessionId,
+      };
+      api.register(async (app) => registerStatusRoutes(app, statusDeps));
 
-    // POST /chat — synchronous inference (only when LLM is configured)
-    if (this._agent) {
-      this.app.register(
-        (app) => registerChatRoutes(app, {
-          sessionManager: this._sessionManager,
-          harness: this._harness,
-          agent: this._agent!,
-        }),
-        { prefix: "/chat" },
-      );
-      // SSE streaming
-      this.app.register(
-        (app) => registerSseRoutes(app, {
-          sessionManager: this._sessionManager,
-          agent: this._agent!,
-        }),
-        { prefix: "/chat" },
-      );
-    }
+      // POST /chat — synchronous inference (only when LLM is configured)
+      if (this._agent) {
+        api.register(
+          (app) => registerChatRoutes(app, {
+            sessionManager: this._sessionManager,
+            harness: this._harness,
+            agent: this._agent!,
+          }),
+          { prefix: "/chat" },
+        );
+        // SSE streaming
+        api.register(
+          (app) => registerSseRoutes(app, {
+            sessionManager: this._sessionManager,
+            harness: this._harness,
+            agent: this._agent!,
+          }),
+          { prefix: "/chat" },
+        );
+      }
 
-    // WebSocket event push
+      // Metrics / Costs / Traces / Detailed health
+      api.register(registerMetricsRoutes, {
+        metrics: options.metrics,
+        costStore: options.costStore,
+        eventLog: options.eventLog,
+        sessionStore: options.sessionStore,
+        handlerCount: options.handlerCount,
+      });
+    }, { prefix: "/api" });
+
+    // WebSocket event push (not under /api — ws://host/ws)
     const eventBus = options.eventBus ?? new EventBus(options.eventLog);
     this.app.register(async (app) => registerWsRoutes(app, { eventBus }));
-
-    // Metrics / Costs / Traces / Detailed health
-    this.app.register(registerMetricsRoutes, {
-      metrics: options.metrics,
-      costStore: options.costStore,
-      eventLog: options.eventLog,
-      sessionStore: options.sessionStore,
-      handlerCount: options.handlerCount,
-    });
   }
 
   async start(): Promise<void> {
