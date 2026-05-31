@@ -16,12 +16,13 @@ function matchesHandler(rh: RegisteredHandler, event: string, payload?: unknown)
   return true;
 }
 
+export const isBlock = (r: HandlerResult): boolean => 'ok' in r && !r.ok;
+export const isAbort = (r: HandlerResult): boolean => 'abort' in r && r.abort;
+export const isSuspend = (r: HandlerResult): boolean => 'suspend' in r && r.suspend;
+export const isTerminalError = (r: HandlerResult): boolean => 'error' in r && r.recoverable === false;
+
 export function shouldShortCircuit(result: HandlerResult): boolean {
-  if ("ok" in result) return !result.ok;
-  if ("abort" in result) return result.abort;
-  if ("suspend" in result) return result.suspend;
-  if ("error" in result) return result.recoverable === false;
-  return false;
+  return isBlock(result) || isAbort(result) || isSuspend(result) || isTerminalError(result);
 }
 
 interface RegisteredHandler {

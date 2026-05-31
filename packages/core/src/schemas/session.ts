@@ -22,6 +22,8 @@ export const SessionConfigSchema = z.object({
   llm: SessionLLMConfigSchema,
   tools: z.record(z.string(), z.boolean()),
   logLevel: z.enum(["debug", "info", "warn", "error"]),
+  name: z.string().optional(),
+  createdAt: z.number().optional(),
 });
 
 export type SessionConfigInferred = z.infer<typeof SessionConfigSchema>;

@@ -4,6 +4,7 @@ import type { CheckpointLog } from "./checkpoint-store.js";
 import type { HandlerResult } from "./types.js";
 import type { PhaseName } from "./types.js";
 import { LifecycleStateMachine } from "./lifecycle.js";
+import { isBlock, isAbort, isSuspend, isTerminalError } from "./handler-engine.js";
 
 const PHASES: PhaseName[] = [
   "context_assembly",
@@ -220,19 +221,8 @@ export class Harness {
     return { status: "completed", turnId };
   }
 
-  private findBlock(results: HandlerResult[]): HandlerResult | undefined {
-    return results.find((r) => "ok" in r && !r.ok);
-  }
-
-  private findSuspend(results: HandlerResult[]): { pendingInput?: unknown } | undefined {
-    return results.find((r) => "suspend" in r && r.suspend) as any;
-  }
-
-  private findAbort(results: HandlerResult[]): HandlerResult | undefined {
-    return results.find((r) => "abort" in r && r.abort);
-  }
-
-  private findTerminalError(results: HandlerResult[]): { error: Error } | undefined {
-    return results.find((r) => "error" in r && r.recoverable === false) as any;
-  }
+  private findBlock(results: HandlerResult[]) { return results.find(isBlock); }
+  private findSuspend(results: HandlerResult[]) { return results.find(r => isSuspend(r)) as any; }
+  private findAbort(results: HandlerResult[]) { return results.find(isAbort); }
+  private findTerminalError(results: HandlerResult[]) { return results.find(r => isTerminalError(r)) as any; }
 }

@@ -22,7 +22,7 @@ export type {
 } from "./types.js";
 
 // --- Handler Engine ---
-export { HandlerEngine, registerBuiltins, BUILTIN_HANDLERS } from "./handler-engine.js";
+export { HandlerEngine, registerBuiltins, BUILTIN_HANDLERS, shouldShortCircuit, isBlock, isAbort, isSuspend, isTerminalError } from "./handler-engine.js";
 export type { HandlerResult, HandlerFn } from "./types.js";
 export type { HandlerSnapshot, RegistrySnapshot } from "./handler-engine.js";
 
