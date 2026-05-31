@@ -1,61 +1,104 @@
-import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { create } from "zustand";
 
 export interface Session {
   id: string;
-  label: string;
+  name: string;
   createdAt: number;
-  lastActivityAt: number;
-  messageCount: number;
 }
 
-export const useSessionStore = defineStore("session", () => {
-  const sessions = ref<Session[]>([]);
-  const activeSessionId = ref<string | null>(null);
+export interface Message {
+  id: string;
+  sessionId: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+  streaming?: boolean;
+}
 
-  const activeSession = computed(() =>
-    sessions.value.find((s) => s.id === activeSessionId.value) ?? null,
-  );
+interface SessionState {
+  sessions: Session[];
+  currentSession: Session | null;
+  messages: Record<string, Message[]>;
 
-  const sortedSessions = computed(() =>
-    [...sessions.value].sort((a, b) => b.lastActivityAt - a.lastActivityAt),
-  );
+  // Session actions
+  setSessions: (sessions: Session[]) => void;
+  addSession: (session: Session) => void;
+  removeSession: (id: string) => void;
+  setCurrentSession: (session: Session | null) => void;
 
-  function setActiveSession(id: string) {
-    const exists = sessions.value.some((s) => s.id === id);
-    if (exists) {
-      activeSessionId.value = id;
-    }
-  }
+  // Message actions
+  addMessage: (sessionId: string, message: Message) => void;
+  updateMessage: (sessionId: string, messageId: string, content: string) => void;
+  appendToMessage: (sessionId: string, messageId: string, chunk: string) => void;
+  setMessageStreaming: (sessionId: string, messageId: string, streaming: boolean) => void;
+  getMessages: (sessionId: string) => Message[];
+}
 
-  function addSession(session: Session) {
-    sessions.value.push(session);
-    activeSessionId.value = session.id;
-  }
+export const useSessionStore = create<SessionState>((set, get) => ({
+  sessions: [],
+  currentSession: null,
+  messages: {},
 
-  function removeSession(id: string) {
-    sessions.value = sessions.value.filter((s) => s.id !== id);
-    if (activeSessionId.value === id) {
-      activeSessionId.value = sessions.value[0]?.id ?? null;
-    }
-  }
+  // Session actions
+  setSessions: (sessions) => set({ sessions }),
 
-  function updateSessionActivity(id: string) {
-    const session = sessions.value.find((s) => s.id === id);
-    if (session) {
-      session.lastActivityAt = Date.now();
-      session.messageCount += 1;
-    }
-  }
+  addSession: (session) =>
+    set((state) => ({ sessions: [...state.sessions, session] })),
 
-  return {
-    sessions,
-    activeSessionId,
-    activeSession,
-    sortedSessions,
-    setActiveSession,
-    addSession,
-    removeSession,
-    updateSessionActivity,
-  };
-});
+  removeSession: (id) =>
+    set((state) => {
+      const remaining = state.sessions.filter((s) => s.id !== id);
+      const { [id]: _, ...restMessages } = state.messages;
+      return {
+        sessions: remaining,
+        messages: restMessages,
+        currentSession:
+          state.currentSession?.id === id
+            ? remaining[remaining.length - 1] ?? null
+            : state.currentSession,
+      };
+    }),
+
+  setCurrentSession: (session) => set({ currentSession: session }),
+
+  // Message actions
+  addMessage: (sessionId, message) =>
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [sessionId]: [...(state.messages[sessionId] ?? []), message],
+      },
+    })),
+
+  updateMessage: (sessionId, messageId, content) =>
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [sessionId]: (state.messages[sessionId] ?? []).map((m) =>
+          m.id === messageId ? { ...m, content } : m,
+        ),
+      },
+    })),
+
+  appendToMessage: (sessionId, messageId, chunk) =>
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [sessionId]: (state.messages[sessionId] ?? []).map((m) =>
+          m.id === messageId ? { ...m, content: m.content + chunk } : m,
+        ),
+      },
+    })),
+
+  setMessageStreaming: (sessionId, messageId, streaming) =>
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [sessionId]: (state.messages[sessionId] ?? []).map((m) =>
+          m.id === messageId ? { ...m, streaming } : m,
+        ),
+      },
+    })),
+
+  getMessages: (sessionId) => get().messages[sessionId] ?? [],
+}));
