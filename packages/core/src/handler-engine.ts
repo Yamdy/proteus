@@ -1,6 +1,7 @@
 import type { HandlerDefinition, HandlerResult, HandlerFn } from "./types.js";
 import type { HandlerContext } from "./context.js";
 import type { WorkerHandlerRunner } from "./worker-handler-runner.js";
+import { HandlerResultSchema } from "./schemas/handler.js";
 
 function matchesHandler(rh: RegisteredHandler, event: string, payload?: unknown): boolean {
   const h = rh.handler;
@@ -198,11 +199,22 @@ export class HandlerEngine {
         if (rh.kind === "interceptor" && interceptorsShortCircuited) continue;
         const shouldUseWorker =
           rh.handler.trust === 2 && this.workerRunner && rh.kind === "interceptor";
-        results.push(
-          shouldUseWorker
-            ? await this.workerRunner!.run(rh.handler, payload)
-            : await rh.handler.handle(payload as HandlerContext),
-        );
+        const rawResult = shouldUseWorker
+          ? await this.workerRunner!.run(rh.handler, payload)
+          : await rh.handler.handle(payload as HandlerContext);
+        const parsed = HandlerResultSchema.safeParse(rawResult);
+        if (!parsed.success) {
+          console.warn(
+            `HandlerEngine: handler "${rh.handler.name}" returned invalid HandlerResult`,
+            parsed.error.issues,
+          );
+          results.push({
+            error: { message: `Invalid HandlerResult from "${rh.handler.name}"` },
+            recoverable: false,
+          });
+        } else {
+          results.push(parsed.data);
+        }
         if (rh.kind === "interceptor" && shouldShortCircuit(results[results.length - 1])) {
           interceptorsShortCircuited = true;
         }

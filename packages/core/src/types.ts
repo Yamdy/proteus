@@ -4,8 +4,13 @@
 // from here instead of from index.ts, which breaks the circular dependency
 // chain that previously ran through the barrel.
 //
-// This file is a leaf module: zero static imports from internal packages.
 // Cross-module references use import() for lazy type resolution.
+// Schema-inferred types are imported then re-exported so they create
+// local bindings (required by downstream interfaces in this file).
+
+import type { InferredToolDefinition, InferredToolResult, InferredArtifact } from './schemas/tool.js';
+import type { InferredHandlerResult } from './schemas/handler.js';
+import type { SessionConfigInferred } from './schemas/session.js';
 
 // --- Prompt Fragment ---
 
@@ -18,24 +23,9 @@ export interface PromptFragment {
 
 // --- Tool ---
 
-export interface ToolDefinition {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>; // JSON Schema
-  builtin?: boolean;
-}
-
-export interface ToolResult {
-  output: unknown;
-  artifacts?: Artifact[];
-  error?: { message: string; retryable: boolean };
-}
-
-export interface Artifact {
-  type: string;
-  data: unknown;
-  metadata?: Record<string, unknown>;
-}
+export type ToolDefinition = InferredToolDefinition;
+export type ToolResult = InferredToolResult;
+export type Artifact = InferredArtifact;
 
 export interface ToolContext {
   turnId: string;
@@ -93,12 +83,7 @@ export type PhaseName =
   | "tool_execution"
   | "result_observation";
 
-export type HandlerResult =
-  | { ok: true; value?: unknown; transform?: boolean }
-  | { ok: false; reason: string }
-  | { abort: boolean; reason: string; retryFrom?: number }
-  | { suspend: true; pendingInput?: unknown }
-  | { error: Error; recoverable?: boolean };
+export type HandlerResult = InferredHandlerResult;
 
 export type HandlerFn = (ctx: import("./context.js").HandlerContext) => Promise<HandlerResult>;
 
@@ -114,16 +99,7 @@ export interface HandlerDefinition {
 
 // --- Session ---
 
-export interface SessionConfig {
-  sessionId: string;
-  llm: {
-    provider: string;
-    model: string;
-    temperature: number;
-  };
-  tools: Record<string, boolean>; // tool name → enabled
-  logLevel: "debug" | "info" | "warn" | "error";
-}
+export type SessionConfig = SessionConfigInferred;
 
 // --- Sandbox ---
 

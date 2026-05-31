@@ -53,7 +53,7 @@ describe("WorkerHandlerRunner", () => {
 
     const result = await runner.run(handler(), {});
 
-    expect(result).toEqual({ error: expect.any(Error), recoverable: false });
+    expect(result).toEqual({ error: { message: "worker crashed" }, recoverable: false });
     if ("error" in result) {
       expect(result.error.message).toBe("worker crashed");
     }

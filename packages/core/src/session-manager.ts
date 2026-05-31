@@ -1,6 +1,7 @@
 import { SessionContext } from "./context.js";
 import type { SessionStore } from "./checkpoint-store.js";
 import type { SessionConfig } from "./types.js";
+import { SessionConfigSchema } from "./schemas/session.js";
 
 export interface SessionManagerOptions {
   store: SessionStore;
@@ -24,6 +25,11 @@ export class SessionManager {
   }
 
   create(sessionId: string, config: SessionConfig): SessionContext {
+    const parsed = SessionConfigSchema.safeParse(config);
+    if (!parsed.success) {
+      throw new Error(`Invalid SessionConfig: ${parsed.error.issues.map(i => i.message).join(", ")}`);
+    }
+
     if (this.sessions.has(sessionId)) {
       throw new Error(`Session "${sessionId}" already exists`);
     }

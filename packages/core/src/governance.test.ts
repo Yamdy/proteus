@@ -628,21 +628,21 @@ describe("GovernanceHooks", () => {
     const engine = new HandlerEngine();
     const order: string[] = [];
     const hooks = new GovernanceHooks(engine);
-    hooks.registerBeforeLlm(async () => { order.push("first"); return { error: new Error("fatal"), recoverable: false }; });
+    hooks.registerBeforeLlm(async () => { order.push("first"); return { error: { message: "fatal" }, recoverable: false }; });
     hooks.registerBeforeLlm(async () => { order.push("second"); });
 
     const ctx = makeContext();
     const results = await engine.emit("phase:before", { phaseName: "context_assembly", ...ctx });
     expect(order).toEqual(["first"]);
     expect(results).toHaveLength(1);
-    expect((results[0] as any).error).toBeInstanceOf(Error);
+    expect((results[0] as any).error).toEqual({ message: "fatal" });
   });
 
   it("recoverable error does NOT short-circuit", async () => {
     const engine = new HandlerEngine();
     const order: string[] = [];
     const hooks = new GovernanceHooks(engine);
-    hooks.registerBeforeLlm(async () => { order.push("first"); return { error: new Error("retry"), recoverable: true }; });
+    hooks.registerBeforeLlm(async () => { order.push("first"); return { error: { message: "retry" }, recoverable: true }; });
     hooks.registerBeforeLlm(async () => { order.push("second"); });
 
     const ctx = makeContext();

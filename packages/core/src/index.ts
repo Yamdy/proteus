@@ -194,3 +194,5 @@ export { ToolDefinitionSchema, ToolResultSchema, ArtifactSchema } from "./schema
 export type { InferredToolDefinition, InferredToolResult, InferredArtifact } from "./schemas/index.js";
 export { SchemaRegistry, createSchemaRegistry } from "./schemas/index.js";
 export type { ValidationResult } from "./schemas/index.js";
+export { ToolCallSchema, LLMResponseSchema } from "./schemas/index.js";
+export type { InferredToolCall, InferredLLMResponse } from "./schemas/index.js";

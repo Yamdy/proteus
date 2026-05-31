@@ -35,9 +35,13 @@ export const HandlerResultSchema = z.union([
     pendingInput: z.unknown().optional(),
   }),
 
-  // error — error with optional recoverable flag
+  // error — error with optional recoverable flag (plain object for worker-thread serialization)
   z.object({
-    error: z.instanceof(Error),
+    error: z.object({
+      message: z.string(),
+      name: z.string().optional(),
+      stack: z.string().optional(),
+    }).passthrough(),
     recoverable: z.boolean().optional(),
   }),
 ]);

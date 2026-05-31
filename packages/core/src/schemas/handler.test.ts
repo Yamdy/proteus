@@ -65,7 +65,7 @@ describe("HandlerResultSchema", () => {
   });
 
   it("validates error variant", () => {
-    const err = new Error("test error");
+    const err = { message: "test error", name: "Error" };
     const result = HandlerResultSchema.parse({
       error: err,
       recoverable: true,
@@ -74,7 +74,7 @@ describe("HandlerResultSchema", () => {
   });
 
   it("validates error variant without recoverable", () => {
-    const err = new Error("fatal");
+    const err = { message: "fatal", name: "Error" };
     const result = HandlerResultSchema.parse({ error: err });
     expect(result).toEqual({ error: err });
   });

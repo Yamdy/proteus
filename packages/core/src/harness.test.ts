@@ -151,7 +151,7 @@ describe("Harness — handler interception", () => {
       events: ["phase:before"],
       priority: 1,
       trust: 1,
-      handle: async () => ({ error: new Error("fatal"), recoverable: false }),
+      handle: async () => ({ error: { message: "fatal" }, recoverable: false }),
     });
 
     const { agent, session } = makeContext(engine);
@@ -170,7 +170,7 @@ describe("Harness — handler interception", () => {
       events: ["phase:before"],
       priority: 1,
       trust: 1,
-      handle: async () => ({ error: new Error("retry"), recoverable: true }),
+      handle: async () => ({ error: { message: "retry" }, recoverable: true }),
     });
 
     const { agent, session } = makeContext(engine);

@@ -2,6 +2,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type { z } from "zod";
 import type { Tool, ToolDefinition, ToolResult } from "./types.js";
 import type { ToolContext } from "./types.js";
+import { ToolResultSchema } from "./schemas/tool.js";
 
 interface RegisteredTool {
   tool: Tool;
@@ -55,14 +56,25 @@ export class ToolRegistry {
       throw new Error(`Tool "${name}" not found in registry`);
     }
 
+    let toolResult: ToolResult;
+
     if (entry.zodSchema) {
       const result = entry.zodSchema.safeParse(params);
       if (!result.success) {
         throw new Error(`Validation error for tool "${name}": ${result.error.message}`);
       }
-      return entry.tool.execute(result.data, context);
+      toolResult = await entry.tool.execute(result.data, context);
+    } else {
+      toolResult = await entry.tool.execute(params, context);
     }
 
-    return entry.tool.execute(params, context);
+    const outputValidation = ToolResultSchema.safeParse(toolResult);
+    if (!outputValidation.success) {
+      throw new Error(
+        `Output validation error for tool "${name}": ${outputValidation.error.message}`
+      );
+    }
+
+    return toolResult;
   }
 }

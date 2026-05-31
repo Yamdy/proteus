@@ -4,6 +4,7 @@ import type { ToolContext } from "./types.js";
 import type { HandlerEngine } from "./handler-engine.js";
 import type { HandlerFn, HandlerResult } from "./types.js";
 import type { ConfigSnapshotManager } from "./config-snapshot-manager.js";
+import { HandlerResultSchema } from "./schemas/handler.js";
 
 // --- Parameter schema ---
 
@@ -38,7 +39,14 @@ export interface SelfModifyToolOptions {
 
 function compileHandlerSource(source: string): HandlerFn {
   const fn = new Function("ctx", source) as (ctx: unknown) => Promise<HandlerResult>;
-  return async (ctx: unknown) => fn(ctx);
+  return async (ctx: unknown) => {
+    const raw = await fn(ctx);
+    const result = HandlerResultSchema.safeParse(raw);
+    if (!result.success) {
+      return { error: { message: `Compiled handler returned invalid result: ${result.error.message}` }, recoverable: false };
+    }
+    return result.data as HandlerResult;
+  };
 }
 
 // --- SelfModifyTool ---

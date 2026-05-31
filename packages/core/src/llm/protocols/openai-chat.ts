@@ -4,6 +4,7 @@ import type {
   ToolDefinition,
   ToolCall,
 } from "../../types.js";
+import { LLMResponseSchema } from "../../schemas/llm.js";
 
 // --- Wire types (OpenAI Chat Completions format) ---
 
@@ -139,7 +140,7 @@ export function createProtocol(config: OpenAIChatConfig): OpenAIChatProtocol {
     const choice = data.choices[0];
     const message = choice?.message;
 
-    return {
+    const result: LLMResponse = {
       content: message?.content ?? "",
       thinking: message?.reasoning_content ?? undefined,
       toolCalls: mapToolCalls(message?.tool_calls ?? []),
@@ -149,6 +150,13 @@ export function createProtocol(config: OpenAIChatConfig): OpenAIChatProtocol {
       },
       finishReason: mapFinishReason(choice?.finish_reason ?? "stop"),
     };
+
+    const parsed = LLMResponseSchema.safeParse(result);
+    if (!parsed.success) {
+      throw new Error(`LLMResponse validation failed: ${JSON.stringify(parsed.error.issues)}`);
+    }
+
+    return result;
   }
 
   async function *chatStream(messages: LLMMessage[], tools: ToolDefinition[]): AsyncIterable<LLMResponse> {

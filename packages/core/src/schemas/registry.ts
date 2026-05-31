@@ -1,9 +1,11 @@
 // SchemaRegistry — validation utility for Proteus schemas
 
 import { z } from "zod";
-import { ToolDefinitionSchema, ToolResultSchema } from "./tool.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { ToolDefinitionSchema, ToolResultSchema, ArtifactSchema } from "./tool.js";
 import { HandlerResultSchema } from "./handler.js";
 import { SessionConfigSchema } from "./session.js";
+import { ToolCallSchema, LLMResponseSchema } from "./llm.js";
 
 export interface ValidationResult<T> {
   success: boolean;
@@ -20,6 +22,9 @@ export class SchemaRegistry {
     this.register("ToolResult", ToolResultSchema);
     this.register("HandlerResult", HandlerResultSchema);
     this.register("SessionConfig", SessionConfigSchema);
+    this.register("Artifact", ArtifactSchema);
+    this.register("ToolCall", ToolCallSchema);
+    this.register("LLMResponse", LLMResponseSchema);
   }
 
   register<T extends z.ZodTypeAny>(name: string, schema: T): void {
@@ -31,6 +36,10 @@ export class SchemaRegistry {
   }
 
   validate<T>(name: string, data: unknown): ValidationResult<T> {
+    if (process.env.NODE_ENV === "production") {
+      return { success: true, data: data as T };
+    }
+
     const schema = this.schemas.get(name);
     if (!schema) {
       return { success: false, errors: [{ message: `Schema '${name}' not found`, path: [], code: "custom" }] };
@@ -49,6 +58,14 @@ export class SchemaRegistry {
       throw new Error(`Schema '${name}' not found`);
     }
     return schema.parse(data) as T;
+  }
+
+  toJSONSchema(name: string, options?: Parameters<typeof zodToJsonSchema>[1]): Record<string, unknown> {
+    const schema = this.schemas.get(name);
+    if (!schema) {
+      throw new Error(`Schema '${name}' not found`);
+    }
+    return zodToJsonSchema(schema, options) as Record<string, unknown>;
   }
 
   has(name: string): boolean {
