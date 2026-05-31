@@ -33,6 +33,7 @@ export async function registerStatusRoutes(
       llm: { provider: "deepseek", model: "deepseek-v4-pro", temperature: 0.7 },
       tools: [],
       logLevel: "info",
+      systemPrompt: "You are a helpful AI assistant.",
     },
     level1: {
       handlers: [

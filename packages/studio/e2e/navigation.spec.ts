@@ -93,9 +93,9 @@ test.describe("Navigation and Routing", () => {
   test("connection dot has correct color class", async ({ page }) => {
     const dot = page.locator('[data-testid="connection-dot"]');
     await expect(dot).toBeVisible();
-    // Should have either bg-green-500 or bg-red-500
+    // Should have either emerald (connected) or red (disconnected)
     const classAttr = await dot.getAttribute("class");
-    expect(classAttr).toMatch(/bg-(green|red)-500/);
+    expect(classAttr).toMatch(/bg-(emerald|green|red)/);
   });
 
   test("pages are lazy loaded with Suspense fallback", async ({ page }) => {

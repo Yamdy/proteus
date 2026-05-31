@@ -21,7 +21,7 @@ export interface Level0Config {
   llm: LLMConfig;
   tools: ToolConfig[];
   logLevel: "debug" | "info" | "warn" | "error";
-  systemPrompt: string;
+  systemPrompt?: string;
 }
 
 export interface HandlerConfig {
