@@ -6,7 +6,6 @@ import {
   InMemoryEventLog,
   InMemorySessionStore,
 } from "@proteus/core";
-import type { CostRecord, StoreEvent } from "@proteus/core";
 
 describe("Metrics / Costs / Traces / Health routes", () => {
   let server: ProteusServer;

@@ -31,6 +31,7 @@ import { registerStatusRoutes, type StatusRouteDeps } from "./routes/status.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerWsRoutes, EventBus } from "./routes/ws.js";
 import { registerSseRoutes } from "./routes/sse.js";
+import { registerSelfModifyRoutes } from "./routes/self-modify.js";
 
 export interface ServerOptions {
   port?: number;
@@ -159,6 +160,11 @@ export class ProteusServer {
         eventLog: options.eventLog,
         sessionStore: options.sessionStore,
         handlerCount: options.handlerCount,
+      });
+
+      // Self-Modify history / detail / rollback
+      api.register(async (app) => registerSelfModifyRoutes(app), {
+        prefix: "/self-modify",
       });
     }, { prefix: "/api" });
 

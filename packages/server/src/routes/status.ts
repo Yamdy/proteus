@@ -27,8 +27,27 @@ export async function registerStatusRoutes(
   // Keep track of server start time for uptime calculation
   const startTime = Date.now();
 
-  // --- In-memory config store (used when no ConfigSnapshotManager is provided) ---
-  let currentConfig: Record<string, unknown> = {};
+  // --- In-memory AgentConfig store (matches Studio frontend AgentConfig shape) ---
+  let currentConfig: Record<string, unknown> = {
+    level0: {
+      llm: { provider: "deepseek", model: "deepseek-v4-pro", temperature: 0.7 },
+      tools: [],
+      logLevel: "info",
+    },
+    level1: {
+      handlers: [
+        { id: "context-assembly", name: "Context Assembly", priority: 100, enabled: true, description: "Assembles context from working memory" },
+        { id: "llm-inference", name: "LLM Inference", priority: 200, enabled: true, description: "Runs LLM inference" },
+        { id: "action-resolution", name: "Action Resolution", priority: 300, enabled: true, description: "Resolves tool calls and actions" },
+        { id: "tool-execution", name: "Tool Execution", priority: 400, enabled: true, description: "Executes tool calls" },
+        { id: "result-observation", name: "Result Observation", priority: 500, enabled: true, description: "Observes and stores results" },
+      ],
+    },
+    level2: {
+      code: "",
+      language: "typescript",
+    },
+  };
 
   // GET /status
   app.get("/status", async () => {
@@ -43,7 +62,7 @@ export async function registerStatusRoutes(
     };
   });
 
-  // GET /config
+  // GET /config — returns AgentConfig directly (frontend expects level0/level1/level2 at top level)
   app.get("/config", async () => {
     if (deps.configManager && deps.sessionId) {
       const snapshots = deps.configManager.listSnapshots(deps.sessionId);
@@ -59,19 +78,16 @@ export async function registerStatusRoutes(
       }
     }
 
-    return { config: currentConfig };
+    return currentConfig;
   });
 
-  // POST /config
+  // POST /config — accepts full AgentConfig, stores and returns it
   app.post("/config", async (request) => {
     const body = (request.body ?? {}) as Record<string, unknown>;
 
-    // Merge partial config into the in-memory store
+    // Replace config entirely with the posted AgentConfig
     currentConfig = { ...currentConfig, ...body };
 
-    return {
-      ok: true,
-      config: currentConfig,
-    };
+    return currentConfig;
   });
 }
