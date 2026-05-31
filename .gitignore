@@ -161,14 +161,3 @@ test-results/
 # GitNexus
 .gitnexus/
 .playwright-mcp/
-
-# Claude plans
-.claude/plans/
-
-# Screenshots and images
-*.png
-*.jpg
-*.jpeg
-
-# Temp scripts
-start-server.mjs
