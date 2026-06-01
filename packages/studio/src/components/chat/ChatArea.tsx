@@ -44,8 +44,12 @@ export default function ChatArea({ onToggleInfo, showInfo }: ChatAreaProps) {
     setIsStreaming(true);
 
     try {
-      await sendMessage(activeItem.id, trimmed);
-      await streamResponse(activeItem.id, trimmed, {
+      // Use thread's parent sessionId for API calls, thread ID for message storage
+      const sessionId = currentThread?.sessionId ?? activeItem.id;
+      const displayKey = activeItem.id;
+      await sendMessage(sessionId, trimmed, { displayKey });
+      await streamResponse(sessionId, trimmed, {
+        displayKey,
         onError: (err) => setError(err.message),
       });
     } catch (err: unknown) {

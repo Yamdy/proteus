@@ -132,14 +132,24 @@ export function useSession() {
       setThreadLoading(true);
       setThreadError(null);
       try {
+        // Create a session on the server first (threads need a backing session for chat)
+        const session = await apiFetch<Session>(API_BASE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        addSession(session);
+
         const thread = await apiFetch<Thread>(THREAD_API, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
         });
-        addThread(thread);
-        setCurrentThread(thread);
-        return thread;
+        // Link thread to the session
+        const threadWithSession = { ...thread, sessionId: session.id };
+        addThread(threadWithSession);
+        setCurrentThread(threadWithSession);
+        return threadWithSession;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("createThread error:", err);
@@ -149,7 +159,7 @@ export function useSession() {
         setThreadLoading(false);
       }
     },
-    [addThread, setCurrentThread],
+    [addSession, addThread, setCurrentThread],
   );
 
   const deleteThread = useCallback(

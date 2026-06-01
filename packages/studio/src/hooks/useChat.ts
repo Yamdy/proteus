@@ -8,6 +8,8 @@ interface SendMessageOptions {
   onComplete?: (fullContent: string) => void;
   onError?: (error: Error) => void;
   maxRetries?: number;
+  /** Key for storing messages in the UI (e.g. thread ID). Defaults to sessionId. */
+  displayKey?: string;
 }
 
 export function useChat() {
@@ -20,7 +22,8 @@ export function useChat() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
-    async (sessionId: string, content: string) => {
+    async (sessionId: string, content: string, options?: { displayKey?: string }) => {
+      const storeKey = options?.displayKey ?? sessionId;
       const userMessage: Message = {
         id: crypto.randomUUID(),
         sessionId,
@@ -28,7 +31,7 @@ export function useChat() {
         content,
         timestamp: Date.now(),
       };
-      addMessage(sessionId, userMessage);
+      addMessage(storeKey, userMessage);
       return userMessage;
     },
     [addMessage],
@@ -39,6 +42,7 @@ export function useChat() {
       const { onChunk, onComplete, onError, maxRetries = 2 } = options;
 
       // Create assistant placeholder
+      const storeKey = options.displayKey ?? sessionId;
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         sessionId,
@@ -47,7 +51,7 @@ export function useChat() {
         timestamp: Date.now(),
         streaming: true,
       };
-      addMessage(sessionId, assistantMessage);
+      addMessage(storeKey, assistantMessage);
 
       let retries = 0;
       let fullContent = "";
@@ -84,7 +88,7 @@ export function useChat() {
               if (line.startsWith("data: ")) {
                 const data = line.slice(6);
                 if (data === "[DONE]") {
-                  setMessageStreaming(sessionId, assistantMessage.id, false);
+                  setMessageStreaming(storeKey, assistantMessage.id, false);
                   onComplete?.(fullContent);
                   return;
                 }
@@ -93,13 +97,13 @@ export function useChat() {
                   const chunk = parsed.content ?? parsed.delta?.content ?? "";
                   if (chunk) {
                     fullContent += chunk;
-                    appendToMessage(sessionId, assistantMessage.id, chunk);
+                    appendToMessage(storeKey, assistantMessage.id, chunk);
                     onChunk?.(chunk);
                   }
                 } catch {
                   // Non-JSON data line, treat as raw text
                   fullContent += data;
-                  appendToMessage(sessionId, assistantMessage.id, data);
+                  appendToMessage(storeKey, assistantMessage.id, data);
                   onChunk?.(data);
                 }
               }
@@ -107,7 +111,7 @@ export function useChat() {
           }
 
           // Stream ended without [DONE]
-          setMessageStreaming(sessionId, assistantMessage.id, false);
+          setMessageStreaming(storeKey, assistantMessage.id, false);
           onComplete?.(fullContent);
         } catch (err: unknown) {
           if (err instanceof Error && err.name === "AbortError") return;
@@ -119,7 +123,7 @@ export function useChat() {
             return attemptStream();
           }
 
-          setMessageStreaming(sessionId, assistantMessage.id, false);
+          setMessageStreaming(storeKey, assistantMessage.id, false);
           const error = err instanceof Error ? err : new Error(String(err));
           console.error("streamResponse error:", error);
           onError?.(error);
