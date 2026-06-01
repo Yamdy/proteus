@@ -11,6 +11,8 @@ import type {
 import { sha256 } from "./utils/hash.js";
 import type { HandlerResult } from "./types.js";
 import { PromptFragmentRegistry } from "./prompt-fragment-registry.js";
+import type { MemoryProvider } from "./memory/types.js";
+import { createInMemoryProvider } from "./memory/in-memory-provider.js";
 
 // --- HandlerEngineHandle (read-only interface for AgentContext) ---
 
@@ -87,13 +89,24 @@ export class SessionContext {
   readonly sessionId: string;
   readonly config: SessionConfig;
   readonly workingMemory: WorkingMemory;
+  readonly memory: MemoryProvider;
   readonly costTracker: CostTracker;
 
-  constructor(config: SessionConfig) {
+  constructor(config: SessionConfig, memoryProvider?: MemoryProvider) {
     this.sessionId = config.sessionId;
     this.config = config;
     this.workingMemory = new WorkingMemory();
+    this.memory = memoryProvider ?? createInMemoryProvider();
     this.costTracker = new CostTracker();
+
+    // Ensure default thread exists for this session
+    this.memory.createThread({
+      threadId: config.sessionId,
+      sessionId: config.sessionId,
+      name: config.name ?? config.sessionId,
+      createdAt: config.createdAt ?? Date.now(),
+      updatedAt: Date.now(),
+    });
   }
 }
 

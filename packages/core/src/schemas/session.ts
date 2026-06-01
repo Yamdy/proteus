@@ -4,6 +4,7 @@
 // Use `z.infer<typeof Schema>` to extract the matching TypeScript type.
 
 import { z } from "zod";
+import { MemoryConfigSchema } from "../memory/schemas.js";
 
 // --- SessionLLMConfig ---
 
@@ -24,6 +25,7 @@ export const SessionConfigSchema = z.object({
   logLevel: z.enum(["debug", "info", "warn", "error"]),
   name: z.string().optional(),
   createdAt: z.number().optional(),
+  memory: MemoryConfigSchema.optional(),
 });
 
 export type SessionConfigInferred = z.infer<typeof SessionConfigSchema>;

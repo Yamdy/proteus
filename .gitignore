@@ -172,4 +172,3 @@ test-results/
 
 # Temp scripts
 start-server.mjs
-packages/server/data/

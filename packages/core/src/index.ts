@@ -187,3 +187,6 @@ export { SchemaRegistry, createSchemaRegistry } from "./schemas/index.js";
 export type { ValidationResult } from "./schemas/index.js";
 export { ToolCallSchema, LLMResponseSchema } from "./schemas/index.js";
 export type { InferredToolCall, InferredLLMResponse } from "./schemas/index.js";
+
+// --- Memory System ---
+export * from './memory/index.js';
