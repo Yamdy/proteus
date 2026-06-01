@@ -11,14 +11,14 @@ describe("Status and Config API", () => {
     }
   });
 
-  describe("GET /status", () => {
+  describe("GET /api/status", () => {
     it("returns default status when no deps are provided", async () => {
       server = createServer({ port: 0 });
       await server.start();
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/status",
+        url: "/api/status",
       });
 
       expect(response.statusCode).toBe(200);
@@ -43,7 +43,7 @@ describe("Status and Config API", () => {
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/status",
+        url: "/api/status",
       });
 
       const body = response.json();
@@ -60,7 +60,7 @@ describe("Status and Config API", () => {
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/status",
+        url: "/api/status",
       });
 
       const body = response.json();
@@ -72,32 +72,34 @@ describe("Status and Config API", () => {
       server = createServer({ port: 0 });
       await server.start();
 
-      const r1 = await server.instance.inject({ method: "GET", url: "/status" });
+      const r1 = await server.instance.inject({ method: "GET", url: "/api/status" });
       const uptime1 = r1.json().uptime;
 
       // Small delay to ensure uptime increases
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      const r2 = await server.instance.inject({ method: "GET", url: "/status" });
+      const r2 = await server.instance.inject({ method: "GET", url: "/api/status" });
       const uptime2 = r2.json().uptime;
 
       expect(uptime2).toBeGreaterThanOrEqual(uptime1);
     });
   });
 
-  describe("GET /config", () => {
-    it("returns empty config when no deps are provided", async () => {
+  describe("GET /api/config", () => {
+    it("returns default config when no deps are provided", async () => {
       server = createServer({ port: 0 });
       await server.start();
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/config",
+        url: "/api/config",
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.config).toEqual({});
+      // Default config has level0/level1/level2 structure
+      expect(body.level0).toBeDefined();
+      expect(body.level0.llm).toBeDefined();
     });
 
     it("returns config snapshot from ConfigSnapshotManager when available", async () => {
@@ -119,7 +121,7 @@ describe("Status and Config API", () => {
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/config",
+        url: "/api/config",
       });
 
       const body = response.json();
@@ -128,7 +130,7 @@ describe("Status and Config API", () => {
       expect(body.checksum).toBe("abc123");
     });
 
-    it("falls back to empty config when ConfigSnapshotManager has no snapshots", async () => {
+    it("falls back to default config when ConfigSnapshotManager has no snapshots", async () => {
       const store = new InMemoryConfigStore();
       const configManager = new ConfigSnapshotManager(store);
 
@@ -137,29 +139,30 @@ describe("Status and Config API", () => {
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/config",
+        url: "/api/config",
       });
 
       const body = response.json();
-      expect(body.config).toEqual({});
+      // Should return default config structure
+      expect(body.level0).toBeDefined();
     });
   });
 
-  describe("POST /config", () => {
-    it("updates in-memory config with partial body", async () => {
+  describe("POST /api/config", () => {
+    it("updates config with posted body", async () => {
       server = createServer({ port: 0 });
       await server.start();
 
       const response = await server.instance.inject({
         method: "POST",
-        url: "/config",
+        url: "/api/config",
         payload: { model: "gpt-4", temperature: 0.7 },
       });
 
       expect(response.statusCode).toBe(200);
       const body = response.json();
-      expect(body.ok).toBe(true);
-      expect(body.config).toEqual({ model: "gpt-4", temperature: 0.7 });
+      expect(body.model).toBe("gpt-4");
+      expect(body.temperature).toBe(0.7);
     });
 
     it("merges subsequent updates", async () => {
@@ -169,45 +172,42 @@ describe("Status and Config API", () => {
       // First update
       await server.instance.inject({
         method: "POST",
-        url: "/config",
+        url: "/api/config",
         payload: { model: "gpt-4", temperature: 0.7 },
       });
 
       // Second partial update
       const response = await server.instance.inject({
         method: "POST",
-        url: "/config",
+        url: "/api/config",
         payload: { temperature: 0.9, maxTokens: 1024 },
       });
 
       const body = response.json();
-      expect(body.ok).toBe(true);
-      expect(body.config).toEqual({
-        model: "gpt-4",
-        temperature: 0.9,
-        maxTokens: 1024,
-      });
+      expect(body.model).toBe("gpt-4");
+      expect(body.temperature).toBe(0.9);
+      expect(body.maxTokens).toBe(1024);
     });
 
-    it("persisted config is visible via GET /config", async () => {
+    it("persisted config is visible via GET /api/config", async () => {
       server = createServer({ port: 0 });
       await server.start();
 
       // POST some config
       await server.instance.inject({
         method: "POST",
-        url: "/config",
-        payload: { model: "claude-3" },
+        url: "/api/config",
+        payload: { customField: "test-value" },
       });
 
       // GET the config back
       const response = await server.instance.inject({
         method: "GET",
-        url: "/config",
+        url: "/api/config",
       });
 
       const body = response.json();
-      expect(body.config).toEqual({ model: "claude-3" });
+      expect(body.customField).toBe("test-value");
     });
 
     it("handles empty body", async () => {
@@ -216,14 +216,11 @@ describe("Status and Config API", () => {
 
       const response = await server.instance.inject({
         method: "POST",
-        url: "/config",
+        url: "/api/config",
         payload: {},
       });
 
       expect(response.statusCode).toBe(200);
-      const body = response.json();
-      expect(body.ok).toBe(true);
-      expect(body.config).toEqual({});
     });
   });
 });

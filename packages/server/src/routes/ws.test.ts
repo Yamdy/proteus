@@ -138,38 +138,73 @@ describe("WebSocket /ws routes", () => {
     expect(received).toHaveLength(0);
   });
 
-  it("supports multiple session subscriptions per client", async () => {
+  it("new subscription replaces old one (strictly exclusive)", async () => {
     const port = await startAndGetPort();
     const ws = await connectWs(port);
     clients.push(ws);
 
-    // Subscribe to s1 and s2
+    // Subscribe to s1
     const ack1Promise = nextMessage(ws);
     ws.send(JSON.stringify({ action: "subscribe", sessionId: "s1" }));
     await ack1Promise;
 
+    // Subscribe to s2 (replaces s1)
     const ack2Promise = nextMessage(ws);
     ws.send(JSON.stringify({ action: "subscribe", sessionId: "s2" }));
     await ack2Promise;
 
-    // Publish to both sessions
-    const msg1Promise = nextMessage(ws);
+    // Publish to s1 — should NOT receive (old subscription cleared)
+    const received: any[] = [];
+    ws.on("message", (data) => {
+      received.push(JSON.parse(data.toString()));
+    });
+
     eventBus.publish({
       sessionId: "s1",
-      event: "event:a",
+      event: "event:old",
+      timestamp: 100,
+    });
+
+    // Publish to s2 — should receive
+    const msgPromise = nextMessage(ws);
+    eventBus.publish({
+      sessionId: "s2",
+      event: "event:new",
+      timestamp: 200,
+    });
+    const msg = await msgPromise;
+    expect(msg.event).toBe("event:new");
+
+    // Verify s1 event was not received
+    await new Promise((r) => setTimeout(r, 100));
+    const s1Events = received.filter((m) => m.event === "event:old");
+    expect(s1Events).toHaveLength(0);
+  });
+
+  it("switching from session to global subscription works", async () => {
+    const port = await startAndGetPort();
+    const ws = await connectWs(port);
+    clients.push(ws);
+
+    // Subscribe to s1
+    const ack1Promise = nextMessage(ws);
+    ws.send(JSON.stringify({ action: "subscribe", sessionId: "s1" }));
+    await ack1Promise;
+
+    // Switch to global subscription
+    const ack2Promise = nextMessage(ws);
+    ws.send(JSON.stringify({ action: "subscribe" }));
+    await ack2Promise;
+
+    // Now should receive events from any session
+    const msg1Promise = nextMessage(ws);
+    eventBus.publish({
+      sessionId: "s2",
+      event: "event:any",
       timestamp: 100,
     });
     const msg1 = await msg1Promise;
-    expect(msg1.event).toBe("event:a");
-
-    const msg2Promise = nextMessage(ws);
-    eventBus.publish({
-      sessionId: "s2",
-      event: "event:b",
-      timestamp: 200,
-    });
-    const msg2 = await msg2Promise;
-    expect(msg2.event).toBe("event:b");
+    expect(msg1.event).toBe("event:any");
   });
 
   it("responds to unsubscribe action", async () => {
@@ -181,7 +216,7 @@ describe("WebSocket /ws routes", () => {
     ws.send(JSON.stringify({ action: "unsubscribe", sessionId: "s1" }));
 
     const ack = await ackPromise;
-    expect(ack).toEqual({ action: "unsubscribed", sessionId: "s1" });
+    expect(ack).toEqual({ action: "unsubscribed", sessionId: null });
   });
 
   it("sends error for invalid JSON", async () => {

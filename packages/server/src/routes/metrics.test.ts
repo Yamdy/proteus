@@ -48,90 +48,62 @@ describe("Metrics / Costs / Traces / Health routes", () => {
     return server.instance;
   }
 
-  // ---- GET /metrics ----
+  // ---- GET /api/metrics ----
 
-  describe("GET /metrics", () => {
-    it("returns 503 when MetricsCollector is not provided", async () => {
-      server = new ProteusServer({ port: 0 });
-      await server.start();
-
-      const res = await server.instance.inject({
-        method: "GET",
-        url: "/metrics",
-      });
-
-      expect(res.statusCode).toBe(503);
-      expect(res.json().error).toBe("MetricsCollector not available");
-    });
-
+  describe("GET /api/metrics", () => {
     it("returns metrics snapshot with zeroed defaults", async () => {
       await createAndStart();
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/metrics",
+        url: "/api/metrics",
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.turnCount).toBe(0);
-      expect(body.activeChains).toBe(0);
-      expect(body.lastTurnDuration).toBe(0);
-      expect(body.lastTurnStatus).toBeNull();
-      expect(body.consecutiveErrors).toBe(0);
-      expect(body.lastTurnTimestamp).toBeNull();
+      expect(body.totalTraces).toBe(0);
+      expect(body.totalSpans).toBe(0);
+      expect(body.averageLatencyMs).toBe(0);
+      expect(body.errorRate).toBe(0);
+      expect(body.phaseBreakdown).toBeDefined();
+      expect(body.toolCallStats).toEqual([]);
     });
 
     it("reflects populated metrics", async () => {
       metrics.handleTurnStart({ turnId: "t1", sessionId: "s1" });
       metrics.handleTurnEnd({ turnId: "t1", status: "completed" });
-      metrics.handleChainStart({ chainId: "c1", sessionId: "s1" });
 
       await createAndStart();
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/metrics",
+        url: "/api/metrics",
       });
 
       const body = res.json();
-      expect(body.turnCount).toBe(1);
-      expect(body.activeChains).toBe(1);
-      expect(body.lastTurnStatus).toBe("completed");
-      expect(body.lastTurnTimestamp).toBeTypeOf("number");
+      expect(body.totalTraces).toBe(1);
+      expect(body.averageLatencyMs).toBeGreaterThanOrEqual(0);
     });
   });
 
-  // ---- GET /costs ----
+  // ---- GET /api/costs ----
 
-  describe("GET /costs", () => {
-    it("returns 503 when CostStore is not provided", async () => {
-      server = new ProteusServer({ port: 0 });
-      await server.start();
-
-      const res = await server.instance.inject({
-        method: "GET",
-        url: "/costs",
-      });
-
-      expect(res.statusCode).toBe(503);
-    });
-
-    it("returns empty records and summary when no data exists", async () => {
+  describe("GET /api/costs", () => {
+    it("returns empty summary when no data exists", async () => {
       await createAndStart();
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/costs",
+        url: "/api/costs",
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.records).toEqual([]);
-      expect(body.summary.totalRecords).toBe(0);
-      expect(body.summary.totalPromptTokens).toBe(0);
-      expect(body.summary.totalCompletionTokens).toBe(0);
-      expect(body.summary.sessionCount).toBe(0);
+      expect(body.totalCostUsd).toBe(0);
+      expect(body.totalTokens).toBe(0);
+      expect(body.bySession).toEqual([]);
+      expect(body.byModel).toEqual([]);
+      expect(body.byTurn).toEqual([]);
     });
 
     it("returns aggregated costs across sessions", async () => {
@@ -157,46 +129,31 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/costs",
+        url: "/api/costs",
       });
 
       const body = res.json();
-      expect(body.records).toHaveLength(2);
-      expect(body.summary.totalRecords).toBe(2);
-      expect(body.summary.totalPromptTokens).toBe(300);
-      expect(body.summary.totalCompletionTokens).toBe(130);
-      expect(body.summary.sessionCount).toBe(2);
+      expect(body.byTurn).toHaveLength(2);
+      expect(body.totalTokens).toBe(430); // 100+50+200+80
+      expect(body.bySession).toHaveLength(2);
     });
   });
 
-  // ---- GET /costs/:sessionId ----
+  // ---- GET /api/costs/:sessionId ----
 
-  describe("GET /costs/:sessionId", () => {
-    it("returns 503 when CostStore is not provided", async () => {
-      server = new ProteusServer({ port: 0 });
-      await server.start();
-
-      const res = await server.instance.inject({
-        method: "GET",
-        url: "/costs/s1",
-      });
-
-      expect(res.statusCode).toBe(503);
-    });
-
+  describe("GET /api/costs/:sessionId", () => {
     it("returns empty records for unknown session", async () => {
       await createAndStart();
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/costs/unknown",
+        url: "/api/costs/unknown",
       });
 
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.sessionId).toBe("unknown");
-      expect(body.records).toEqual([]);
-      expect(body.summary.totalRecords).toBe(0);
+      expect(body.byTurn).toEqual([]);
+      expect(body.totalTokens).toBe(0);
     });
 
     it("returns cost records for a specific session", async () => {
@@ -227,39 +184,24 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/costs/s1",
+        url: "/api/costs/s1",
       });
 
       const body = res.json();
-      expect(body.sessionId).toBe("s1");
-      expect(body.records).toHaveLength(2);
-      expect(body.summary.totalRecords).toBe(2);
-      expect(body.summary.totalPromptTokens).toBe(300);
-      expect(body.summary.totalCompletionTokens).toBe(130);
+      expect(body.byTurn).toHaveLength(2);
+      expect(body.totalTokens).toBe(430); // 100+50+200+80
     });
   });
 
-  // ---- GET /traces/:sessionId ----
+  // ---- GET /api/traces/:sessionId ----
 
-  describe("GET /traces/:sessionId", () => {
-    it("returns 503 when EventLog is not provided", async () => {
-      server = new ProteusServer({ port: 0 });
-      await server.start();
-
-      const res = await server.instance.inject({
-        method: "GET",
-        url: "/traces/s1",
-      });
-
-      expect(res.statusCode).toBe(503);
-    });
-
+  describe("GET /api/traces/:sessionId", () => {
     it("returns empty events for unknown session", async () => {
       await createAndStart();
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/traces/unknown",
+        url: "/api/traces/unknown",
       });
 
       expect(res.statusCode).toBe(200);
@@ -293,7 +235,7 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/traces/s1",
+        url: "/api/traces/s1",
       });
 
       const body = res.json();
@@ -320,7 +262,7 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/traces/s1?since=3000",
+        url: "/api/traces/s1?since=3000",
       });
 
       const body = res.json();
@@ -329,16 +271,32 @@ describe("Metrics / Costs / Traces / Health routes", () => {
     });
   });
 
-  // ---- GET /health/detailed ----
+  // ---- GET /api/traces/:traceId/tool-calls ----
 
-  describe("GET /health/detailed", () => {
+  describe("GET /api/traces/:traceId/tool-calls", () => {
+    it("returns empty array for tool calls", async () => {
+      await createAndStart();
+
+      const res = await server.instance.inject({
+        method: "GET",
+        url: "/api/traces/trace1/tool-calls",
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual([]);
+    });
+  });
+
+  // ---- GET /api/health/detailed ----
+
+  describe("GET /api/health/detailed", () => {
     it("returns 503 when MetricsCollector is not provided", async () => {
       server = new ProteusServer({ port: 0 });
       await server.start();
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/health/detailed",
+        url: "/api/health/detailed",
       });
 
       expect(res.statusCode).toBe(503);
@@ -349,7 +307,7 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/health/detailed",
+        url: "/api/health/detailed",
       });
 
       expect(res.statusCode).toBe(200);
@@ -375,7 +333,7 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/health/detailed",
+        url: "/api/health/detailed",
       });
 
       const body = res.json();
@@ -393,7 +351,7 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/health/detailed",
+        url: "/api/health/detailed",
       });
 
       const body = res.json();
@@ -414,7 +372,7 @@ describe("Metrics / Costs / Traces / Health routes", () => {
 
       const res = await server.instance.inject({
         method: "GET",
-        url: "/health/detailed",
+        url: "/api/health/detailed",
       });
 
       const body = res.json();

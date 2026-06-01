@@ -20,7 +20,7 @@ function mockLLM(response = "Hello from the mock LLM!"): LLMProvider {
   };
 }
 
-describe("POST /chat", () => {
+describe("POST /api/chat", () => {
   it("returns response for a valid session", async () => {
     const server = createServer({
       llm: mockLLM("Sure, I can help with that!"),
@@ -36,7 +36,7 @@ describe("POST /chat", () => {
 
     const res = await server.instance.inject({
       method: "POST",
-      url: "/chat",
+      url: "/api/chat",
       payload: { sessionId: "test-session", message: "Hello" },
     });
 
@@ -54,7 +54,7 @@ describe("POST /chat", () => {
 
     const res = await server.instance.inject({
       method: "POST",
-      url: "/chat",
+      url: "/api/chat",
       payload: { sessionId: "nonexistent", message: "Hello" },
     });
 
@@ -71,7 +71,7 @@ describe("POST /chat", () => {
 
     const res = await server.instance.inject({
       method: "POST",
-      url: "/chat",
+      url: "/api/chat",
       payload: { sessionId: "s1" },
     });
 
@@ -87,7 +87,7 @@ describe("POST /chat", () => {
 
     const res = await server.instance.inject({
       method: "POST",
-      url: "/chat",
+      url: "/api/chat",
       payload: { sessionId: "s1", message: "Hello" },
     });
 
