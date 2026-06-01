@@ -37,3 +37,27 @@ export function formatUsd(n: number): string {
   if (n < 0.01) return `$${n.toFixed(4)}`;
   return `$${n.toFixed(2)}`;
 }
+
+/** Format a number with compact suffix (K / M / B). */
+export function formatCompact(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(1)}B`;
+  }
+  if (abs >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (abs >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`;
+  }
+  if (!Number.isInteger(value)) {
+    return value.toFixed(1);
+  }
+  return String(value);
+}
+
+/** Format cost as USD string. */
+export function formatCost(usd: number): string {
+  if (usd < 0.01) return `$${usd.toFixed(4)}`;
+  return `$${usd.toFixed(2)}`;
+}

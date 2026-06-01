@@ -190,3 +190,12 @@ export type { InferredToolCall, InferredLLMResponse } from "./schemas/index.js";
 
 // --- Memory System ---
 export * from './memory/index.js';
+
+// --- SpanStore (Observability) ---
+export { InMemorySpanStore } from './in-memory-span-store.js';
+export type { SpanRecord, TraceSummary, ListTracesArgs, PaginatedResponse, SpanStore } from './span-store.js';
+export { SpanRecordSchema, TraceSummarySchema, ListTracesArgsSchema, PaginatedResponseSchema } from './span-store.js';
+
+// --- MetricAggregate (Observability) ---
+export type { MetricAggregateArgs, MetricAggregateResponse, MetricsDimensionalFilter } from './metric-aggregate.js';
+export { MetricAggregateArgsSchema, MetricAggregateResponseSchema, MetricsDimensionalFilterSchema, comparePeriodSchema } from './metric-aggregate.js';

@@ -172,6 +172,22 @@ export class SqliteEventLog implements EventLog {
     const rows = this.db.prepare("SELECT session_id, event, payload, timestamp FROM event_log WHERE session_id = ? ORDER BY timestamp").all(sessionId) as any[];
     return rows.map((r) => ({ sessionId: r.session_id, event: r.event, payload: r.payload ? JSON.parse(r.payload) : undefined, timestamp: r.timestamp }));
   }
+
+  queryAllEvents(start?: number, end?: number): StoreEvent[] {
+    let sql = "SELECT session_id, event, payload, timestamp FROM event_log WHERE 1=1";
+    const params: number[] = [];
+    if (start !== undefined) {
+      sql += " AND timestamp >= ?";
+      params.push(start);
+    }
+    if (end !== undefined) {
+      sql += " AND timestamp <= ?";
+      params.push(end);
+    }
+    sql += " ORDER BY timestamp";
+    const rows = this.db.prepare(sql).all(...params) as any[];
+    return rows.map((r) => ({ sessionId: r.session_id, event: r.event, payload: r.payload ? JSON.parse(r.payload) : undefined, timestamp: r.timestamp }));
+  }
 }
 
 export class SqliteConfigStore implements ConfigStore {

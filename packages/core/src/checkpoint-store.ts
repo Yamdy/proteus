@@ -57,6 +57,7 @@ export interface CheckpointLog {
 export interface EventLog {
   appendEvent(event: StoreEvent): void;
   queryEvents(sessionId: string, since?: number): StoreEvent[];
+  queryAllEvents(start?: number, end?: number): StoreEvent[];
 }
 
 export interface ConfigStore {
@@ -147,6 +148,14 @@ export class InMemoryEventLog implements EventLog {
   queryEvents(sessionId: string, since?: number): StoreEvent[] {
     return this.events.filter(
       (e) => e.sessionId === sessionId && (since === undefined || e.timestamp >= since),
+    );
+  }
+
+  queryAllEvents(start?: number, end?: number): StoreEvent[] {
+    return this.events.filter(
+      (e) =>
+        (start === undefined || e.timestamp >= start) &&
+        (end === undefined || e.timestamp <= end),
     );
   }
 }

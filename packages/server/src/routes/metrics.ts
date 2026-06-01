@@ -6,6 +6,7 @@ import type {
   CostStore,
   EventLog,
   SessionStore,
+  SpanStore,
 } from "@proteus/core";
 import { buildHealthResponse } from "@proteus/core";
 
@@ -14,6 +15,7 @@ export interface MetricsRoutesOptions {
   costStore?: CostStore;
   eventLog?: EventLog;
   sessionStore?: SessionStore;
+  spanStore?: SpanStore;
   handlerCount?: number;
 }
 
@@ -21,7 +23,7 @@ export async function registerMetricsRoutes(
   app: FastifyInstance,
   opts: MetricsRoutesOptions,
 ): Promise<void> {
-  const { metrics, costStore, eventLog, sessionStore, handlerCount } = opts;
+  const { metrics, costStore, eventLog, sessionStore, spanStore, handlerCount } = opts;
 
   // GET /metrics — live metrics snapshot (format matching frontend MetricsSnapshot)
   app.get("/metrics", async () => {
@@ -195,6 +197,136 @@ export async function registerMetricsRoutes(
       return [];
     },
   );
+
+  // GET /traces/:traceId/spans — spans for a specific trace
+  // Returns SpanRecord[] for the given traceId
+  app.get<{ Params: { traceId: string } }>(
+    "/traces/:traceId/spans",
+    async (request) => {
+      const { traceId } = request.params;
+
+      // Prefer SpanStore when available
+      if (spanStore) {
+        return spanStore.getTraceSpans(traceId);
+      }
+
+      // Fallback: derive span-like records from EventLog
+      if (!eventLog) {
+        return [];
+      }
+
+      const allEvents = eventLog.queryAllEvents();
+      const events = allEvents.filter((e) => e.sessionId === traceId);
+      return events.map((e, i) => ({
+        traceId,
+        spanId: `${traceId}-span-${i}`,
+        name: e.event,
+        type: e.event,
+        startTime: e.timestamp,
+        status: e.event === "error" ? "error" : "success",
+        attributes: e.payload ?? undefined,
+      }));
+    },
+  );
+
+  // POST /metrics/aggregate — metric aggregation endpoint
+  app.post<{ Body: Record<string, unknown> }>(
+    "/metrics/aggregate",
+    async (request, reply) => {
+      try {
+        const { MetricAggregateArgsSchema } = await import("@proteus/core");
+        const args = MetricAggregateArgsSchema.parse(request.body);
+
+        // Import MetricsServerAdapter dynamically
+        const { MetricsServerAdapter } = await import("../metrics-adapter.js");
+        const adapter = new MetricsServerAdapter({
+          eventLog: eventLog!,
+          costStore,
+          metrics,
+        });
+
+        return adapter.getMetricAggregate(args);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Invalid request";
+        return reply.code(400).send({ error: msg });
+      }
+    },
+  );
+
+  // GET /traces — enhanced traces with pagination and filtering
+  app.get<{
+    Querystring: {
+      page?: string;
+      limit?: string;
+      status?: string;
+      rootEntityType?: string;
+      entityName?: string;
+      mode?: string;
+      since?: string;
+    };
+  }>("/traces", async (request) => {
+    const page = Math.max(1, Number(request.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(request.query.limit) || 25));
+    const { status, rootEntityType, entityName, mode, since } = request.query;
+
+    // If SpanStore is available, use it
+    // Otherwise, derive from EventLog
+    const sinceTs = since ? Number(since) : undefined;
+
+    // Get all events and group by traceId
+    const allEvents = eventLog ? eventLog.queryAllEvents(sinceTs) : [];
+
+    // Group events by traceId to create trace summaries
+    const traceMap = new Map<string, { startTime: number; endTime?: number; events: typeof allEvents }>();
+    for (const event of allEvents) {
+      const traceId = event.sessionId || "unknown";
+      const existing = traceMap.get(traceId) ?? { startTime: event.timestamp, events: [] };
+      existing.events.push(event);
+      if (event.timestamp < existing.startTime) existing.startTime = event.timestamp;
+      if (!existing.endTime || event.timestamp > existing.endTime) existing.endTime = event.timestamp;
+      traceMap.set(traceId, existing);
+    }
+
+    // Convert to trace summaries
+    let traces = Array.from(traceMap.entries()).map(([traceId, data]) => ({
+      traceId,
+      name: data.events[0]?.event || "unknown",
+      type: data.events[0]?.event || "unknown",
+      status: (data.events.some(e => e.event === "error") ? "error" : "success") as "running" | "success" | "error",
+      startTime: data.startTime,
+      endTime: data.endTime,
+      latency: data.endTime ? data.endTime - data.startTime : undefined,
+      entityName: (data.events[0]?.payload as Record<string, unknown>)?.entityName as string | undefined,
+      rootEntityType: data.events[0]?.event,
+    }));
+
+    // Apply filters
+    if (status) {
+      traces = traces.filter((t) => t.status === status);
+    }
+    if (rootEntityType) {
+      traces = traces.filter((t) => t.rootEntityType === rootEntityType);
+    }
+    if (entityName) {
+      traces = traces.filter((t) => t.entityName === entityName);
+    }
+
+    // Delta mode
+    if (mode === "delta" && sinceTs) {
+      traces = traces.filter((t) => t.startTime > sinceTs);
+    }
+
+    // Sort by startTime descending (newest first)
+    traces.sort((a, b) => b.startTime - a.startTime);
+
+    // Paginate
+    const total = traces.length;
+    const start = (page - 1) * limit;
+    const data = traces.slice(start, start + limit);
+    const hasMore = start + limit < total;
+
+    return { data, total, page, limit, hasMore };
+  });
 
   // GET /health/detailed — detailed health using buildHealthResponse
   app.get("/health/detailed", async (_request, reply) => {

@@ -26,6 +26,7 @@ function mockEventLog(): EventLog & { events: StoreEvent[] } {
     events,
     appendEvent(event: StoreEvent) { events.push(event); },
     queryEvents() { return []; },
+    queryAllEvents() { return events; },
   };
 }
 
