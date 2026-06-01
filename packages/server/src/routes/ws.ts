@@ -91,8 +91,16 @@ export async function registerWsRoutes(
     "/ws",
     { websocket: true } as any,
     (socket: any, _req: any) => {
-      // Track per-connection unsubscribers so we clean up on close
-      const unsubs: Array<() => void> = [];
+      // Strictly exclusive: one active subscription per connection
+      let currentUnsub: (() => void) | null = null;
+
+      // Helper to clear existing subscription before creating new one
+      const clearSubscription = () => {
+        if (currentUnsub) {
+          currentUnsub();
+          currentUnsub = null;
+        }
+      };
 
       socket.on("message", (raw: Buffer | string) => {
         let msg: ClientMessage;
@@ -103,50 +111,68 @@ export async function registerWsRoutes(
           return;
         }
 
+        // Support both formats: {action:"subscribe", sessionId} and {type:"subscribe", channels:[...]}
         if (msg.action === "subscribe" || msg.type === "subscribe") {
-          const handler = (evt: StoreEvent) => {
-            try {
-              socket.send(
-                JSON.stringify({
-                  event: evt.event,
-                  payload: evt.payload,
-                  timestamp: evt.timestamp,
-                }),
-              );
-            } catch {
-              // client disconnected
-            }
-          };
+          // Clear any existing subscription (strictly exclusive)
+          clearSubscription();
 
           if (msg.sessionId) {
             // Session-specific subscription
-            const unsub = eventBus.subscribe(msg.sessionId, handler);
-            unsubs.push(unsub);
+            currentUnsub = eventBus.subscribe(msg.sessionId, (evt) => {
+              const push = {
+                event: evt.event,
+                payload: evt.payload,
+                timestamp: evt.timestamp,
+              };
+              try {
+                socket.send(JSON.stringify(push));
+              } catch {
+                // client disconnected
+              }
+            });
+
+            socket.send(
+              JSON.stringify({
+                action: "subscribed",
+                sessionId: msg.sessionId,
+              }),
+            );
           } else {
-            // Global subscription
-            const unsub = eventBus.subscribeAll(handler);
-            unsubs.push(unsub);
+            // Global subscription (no sessionId)
+            currentUnsub = eventBus.subscribeAll((evt) => {
+              const push = {
+                event: evt.event,
+                payload: evt.payload,
+                timestamp: evt.timestamp,
+              };
+              try {
+                socket.send(JSON.stringify(push));
+              } catch {
+                // client disconnected
+              }
+            });
+
+            socket.send(
+              JSON.stringify({
+                action: "subscribed",
+                sessionId: null,
+              }),
+            );
           }
+        } else if (msg.action === "unsubscribe" || msg.type === "unsubscribe") {
+          clearSubscription();
 
           socket.send(
             JSON.stringify({
-              action: "subscribed",
-              sessionId: msg.sessionId,
-            }),
-          );
-        } else if (msg.action === "unsubscribe" || msg.type === "unsubscribe") {
-          socket.send(
-            JSON.stringify({
               action: "unsubscribed",
-              sessionId: msg.sessionId,
+              sessionId: null,
             }),
           );
         }
       });
 
       socket.on("close", () => {
-        for (const unsub of unsubs) unsub();
-        unsubs.length = 0;
+        clearSubscription();
       });
     },
   );
