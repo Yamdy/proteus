@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useSessionStore, type Session } from "../stores/sessionStore";
+import { useSessionStore, type Session, type Thread } from "../stores/sessionStore";
 import { apiFetch } from "../lib/api";
 
 const API_BASE = "/api/sessions";
@@ -8,15 +8,23 @@ export function useSession() {
   const {
     sessions,
     currentSession,
+    threads,
+    currentThread,
     setSessions,
     addSession,
     removeSession,
     setCurrentSession,
+    setThreads,
+    addThread,
+    removeThread,
+    setCurrentThread,
     setMessages,
   } = useSessionStore();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadError, setThreadError] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -99,6 +107,91 @@ export function useSession() {
     [setMessages],
   );
 
+  // ── Thread operations ──────────────────────────────────────────────
+
+  const THREAD_API = "/api/threads";
+
+  const fetchThreads = useCallback(async () => {
+    setThreadLoading(true);
+    setThreadError(null);
+    try {
+      const data = await apiFetch<Thread[]>(THREAD_API);
+      setThreads(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      console.error("fetchThreads error:", err);
+      setThreadError(msg);
+      throw err;
+    } finally {
+      setThreadLoading(false);
+    }
+  }, [setThreads]);
+
+  const createThread = useCallback(
+    async (name?: string) => {
+      setThreadLoading(true);
+      setThreadError(null);
+      try {
+        const thread = await apiFetch<Thread>(THREAD_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name }),
+        });
+        addThread(thread);
+        setCurrentThread(thread);
+        return thread;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        console.error("createThread error:", err);
+        setThreadError(msg);
+        throw err;
+      } finally {
+        setThreadLoading(false);
+      }
+    },
+    [addThread, setCurrentThread],
+  );
+
+  const deleteThread = useCallback(
+    async (id: string) => {
+      setThreadLoading(true);
+      setThreadError(null);
+      try {
+        await apiFetch(`${THREAD_API}/${id}`, { method: "DELETE" });
+        removeThread(id);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        console.error("deleteThread error:", err);
+        setThreadError(msg);
+        throw err;
+      } finally {
+        setThreadLoading(false);
+      }
+    },
+    [removeThread],
+  );
+
+  const fetchThreadMessages = useCallback(
+    async (threadId: string) => {
+      try {
+        const data = await apiFetch<Array<{ role: string; content: string }>>(
+          `${THREAD_API}/${threadId}/messages`,
+        );
+        const messages = data.map((msg, i) => ({
+          id: `thread-${threadId}-${i}`,
+          sessionId: threadId,
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+          timestamp: Date.now() - (data.length - i) * 60000,
+        }));
+        setMessages(threadId, messages);
+      } catch (err: unknown) {
+        console.error("fetchThreadMessages error:", err);
+      }
+    },
+    [setMessages],
+  );
+
   return {
     sessions,
     currentSession,
@@ -109,5 +202,14 @@ export function useSession() {
     deleteSession,
     fetchMessages,
     setCurrentSession,
+    threads,
+    currentThread,
+    threadLoading,
+    threadError,
+    fetchThreads,
+    createThread,
+    deleteThread,
+    fetchThreadMessages,
+    setCurrentThread,
   };
 }

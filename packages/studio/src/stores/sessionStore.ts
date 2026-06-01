@@ -15,16 +15,33 @@ export interface Message {
   streaming?: boolean;
 }
 
+export interface Thread {
+  id: string;
+  sessionId: string;
+  name: string;
+  createdAt: number;
+}
+
 interface SessionState {
   sessions: Session[];
   currentSession: Session | null;
   messages: Record<string, Message[]>;
+
+  // Thread state
+  threads: Thread[];
+  currentThread: Thread | null;
 
   // Session actions
   setSessions: (sessions: Session[]) => void;
   addSession: (session: Session) => void;
   removeSession: (id: string) => void;
   setCurrentSession: (session: Session | null) => void;
+
+  // Thread actions
+  setThreads: (threads: Thread[]) => void;
+  addThread: (thread: Thread) => void;
+  removeThread: (id: string) => void;
+  setCurrentThread: (thread: Thread | null) => void;
 
   // Message actions
   addMessage: (sessionId: string, message: Message) => void;
@@ -38,6 +55,10 @@ export const useSessionStore = create<SessionState>((set) => ({
   sessions: [],
   currentSession: null,
   messages: {},
+
+  // Thread state
+  threads: [],
+  currentThread: null,
 
   // Session actions
   setSessions: (sessions) => set({ sessions }),
@@ -60,6 +81,26 @@ export const useSessionStore = create<SessionState>((set) => ({
     }),
 
   setCurrentSession: (session) => set({ currentSession: session }),
+
+  // Thread actions
+  setThreads: (threads) => set({ threads }),
+
+  addThread: (thread) =>
+    set((state) => ({ threads: [...state.threads, thread] })),
+
+  removeThread: (id) =>
+    set((state) => {
+      const remaining = state.threads.filter((t) => t.id !== id);
+      return {
+        threads: remaining,
+        currentThread:
+          state.currentThread?.id === id
+            ? remaining[remaining.length - 1] ?? null
+            : state.currentThread,
+      };
+    }),
+
+  setCurrentThread: (thread) => set({ currentThread: thread }),
 
   // Message actions
   addMessage: (sessionId, message) =>

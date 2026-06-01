@@ -9,7 +9,7 @@ interface ChatAreaProps {
 }
 
 export default function ChatArea({ onToggleInfo, showInfo }: ChatAreaProps) {
-  const { currentSession, messages } = useSessionStore();
+  const { currentSession, currentThread, messages } = useSessionStore();
   const { sendMessage, streamResponse, cancelStream } = useChat();
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -17,8 +17,10 @@ export default function ChatArea({ onToggleInfo, showInfo }: ChatAreaProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const currentMessages = currentSession
-    ? messages[currentSession.id] ?? []
+  // Prefer thread over session for display
+  const activeItem = currentThread ?? currentSession;
+  const currentMessages = activeItem
+    ? messages[activeItem.id] ?? []
     : [];
 
   useEffect(() => {
@@ -35,15 +37,15 @@ export default function ChatArea({ onToggleInfo, showInfo }: ChatAreaProps) {
 
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || !currentSession || isStreaming) return;
+    if (!trimmed || !activeItem || isStreaming) return;
 
     setInput("");
     setError(null);
     setIsStreaming(true);
 
     try {
-      await sendMessage(currentSession.id, trimmed);
-      await streamResponse(currentSession.id, trimmed, {
+      await sendMessage(activeItem.id, trimmed);
+      await streamResponse(activeItem.id, trimmed, {
         onError: (err) => setError(err.message),
       });
     } catch (err: unknown) {
@@ -66,7 +68,7 @@ export default function ChatArea({ onToggleInfo, showInfo }: ChatAreaProps) {
     setIsStreaming(false);
   };
 
-  if (!currentSession) {
+  if (!activeItem) {
     return (
       <div
         data-testid="chat-empty"
@@ -106,7 +108,7 @@ export default function ChatArea({ onToggleInfo, showInfo }: ChatAreaProps) {
       <div className="glass-panel-strong flex items-center justify-between px-6 py-3">
         <div>
           <h2 className="text-sm font-semibold text-gray-100">
-            {currentSession.name}
+            {activeItem.name}
           </h2>
           <p className="text-[10px] text-gray-600 font-mono">
             {currentMessages.length} message
