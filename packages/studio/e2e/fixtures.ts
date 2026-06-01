@@ -28,25 +28,24 @@ export function isLLMConfigured(): boolean {
   );
 }
 
-/** Create a session via the real server API. */
+/** Create a thread via the real server API. */
 export async function createSessionDirectly(name: string): Promise<string> {
-  const sessionId = `${TEST_SESSION_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const resp = await fetch(`${API_BASE_URL}/api/sessions`, {
+  const threadId = `${TEST_SESSION_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const resp = await fetch(`${API_BASE_URL}/api/threads`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      sessionId,
-      config: { sessionId, ...DEFAULT_SESSION_CONFIG },
+      threadId,
       name,
     }),
   });
-  if (!resp.ok) throw new Error(`Failed to create session: ${resp.status}`);
-  return sessionId;
+  if (!resp.ok) throw new Error(`Failed to create thread: ${resp.status}`);
+  return threadId;
 }
 
-/** Delete a session via the real server API. */
+/** Delete a thread via the real server API. */
 export async function deleteSessionDirectly(id: string): Promise<void> {
-  await fetch(`${API_BASE_URL}/api/sessions/${id}`, { method: "DELETE" });
+  await fetch(`${API_BASE_URL}/api/threads/${id}`, { method: "DELETE" });
 }
 
 /** Check whether the real server exposes a given API path. */
@@ -103,31 +102,28 @@ export const test = base.extend<StudioFixtures>({
     let createdIds: string[] = [];
 
     const createTestSession = async (name?: string) => {
-      const sessionId = `${TEST_SESSION_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const resp = await fetch(`${API_BASE_URL}/api/sessions`, {
+      const threadId = `${TEST_SESSION_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const resp = await fetch(`${API_BASE_URL}/api/threads`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId,
-          config: {
-            sessionId,
-            ...DEFAULT_SESSION_CONFIG,
-          },
+          threadId,
+          name: name ?? `Test Thread ${Date.now()}`,
         }),
       });
       if (!resp.ok) {
-        throw new Error(`Failed to create test session: ${resp.status} ${await resp.text()}`);
+        throw new Error(`Failed to create test thread: ${resp.status} ${await resp.text()}`);
       }
-      createdIds.push(sessionId);
-      return sessionId;
+      createdIds.push(threadId);
+      return threadId;
     };
 
     await use(createTestSession);
 
-    // Cleanup: delete all sessions created during the test
+    // Cleanup: delete all threads created during the test
     for (const id of createdIds) {
       try {
-        await fetch(`${API_BASE_URL}/api/sessions/${id}`, { method: "DELETE" });
+        await fetch(`${API_BASE_URL}/api/threads/${id}`, { method: "DELETE" });
       } catch {
         // best-effort cleanup
       }
@@ -136,13 +132,13 @@ export const test = base.extend<StudioFixtures>({
 
   cleanupSessions: async ({}, use) => {
     const cleanupSessions = async () => {
-      const resp = await fetch(`${API_BASE_URL}/api/sessions`);
+      const resp = await fetch(`${API_BASE_URL}/api/threads`);
       if (!resp.ok) return;
-      const sessions = (await resp.json()) as Array<{ id: string }>;
-      for (const session of sessions) {
-        if (session.id.startsWith(TEST_SESSION_PREFIX)) {
+      const threads = (await resp.json()) as Array<{ id: string }>;
+      for (const thread of threads) {
+        if (thread.id.startsWith(TEST_SESSION_PREFIX)) {
           try {
-            await fetch(`${API_BASE_URL}/api/sessions/${session.id}`, { method: "DELETE" });
+            await fetch(`${API_BASE_URL}/api/threads/${thread.id}`, { method: "DELETE" });
           } catch {
             // best-effort
           }

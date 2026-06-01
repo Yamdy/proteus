@@ -59,7 +59,7 @@ test.describe("Chat Module", () => {
     await expect(createBtn).toBeVisible();
 
     const responsePromise = page.waitForResponse((resp) =>
-      resp.url().includes("/api/sessions") && resp.request().method() === "POST",
+      resp.url().includes("/api/threads") && resp.request().method() === "POST",
     );
     await createBtn.click();
     await responsePromise;
@@ -81,7 +81,7 @@ test.describe("Chat Module", () => {
     await expect(deleteBtn).toBeVisible();
 
     const responsePromise = page.waitForResponse((resp) =>
-      resp.url().includes(`/api/sessions/${testSessionId}`) &&
+      resp.url().includes(`/api/threads/${testSessionId}`) &&
       resp.request().method() === "DELETE",
     );
     await deleteBtn.click();
