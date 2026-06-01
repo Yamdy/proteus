@@ -7,11 +7,9 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test",
-    "clean": "turbo clean",
-    "prepare": "husky"
+    "clean": "turbo clean"
   },
   "devDependencies": {
-    "husky": "^9.1.7",
     "turbo": "^2.4.4",
     "typescript": "^5.7.3"
   }
