@@ -103,31 +103,44 @@ export async function registerWsRoutes(
           return;
         }
 
-        // Support both formats: {action:"subscribe", sessionId} and {type:"subscribe", channels:[...]}
         if (msg.action === "subscribe" || msg.type === "subscribe") {
-          // If no sessionId, subscribe to all events (global)
-          const unsub = eventBus.subscribeAll((evt) => {
-            const push = {
-              type: evt.event,
-              data: evt.payload,
-              timestamp: evt.timestamp,
-            };
+          const handler = (evt: StoreEvent) => {
             try {
-              socket.send(JSON.stringify(push));
+              socket.send(
+                JSON.stringify({
+                  event: evt.event,
+                  payload: evt.payload,
+                  timestamp: evt.timestamp,
+                }),
+              );
             } catch {
               // client disconnected
             }
-          });
-          unsubs.push(unsub);
+          };
+
+          if (msg.sessionId) {
+            // Session-specific subscription
+            const unsub = eventBus.subscribe(msg.sessionId, handler);
+            unsubs.push(unsub);
+          } else {
+            // Global subscription
+            const unsub = eventBus.subscribeAll(handler);
+            unsubs.push(unsub);
+          }
 
           socket.send(
             JSON.stringify({
-              type: "subscribed",
-              channels: msg.channels ?? ["all"],
+              action: "subscribed",
+              sessionId: msg.sessionId,
             }),
           );
         } else if (msg.action === "unsubscribe" || msg.type === "unsubscribe") {
-          // Clean up handled by close
+          socket.send(
+            JSON.stringify({
+              action: "unsubscribed",
+              sessionId: msg.sessionId,
+            }),
+          );
         }
       });
 

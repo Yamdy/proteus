@@ -17,6 +17,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "test": "vitest run",
     "dev": "tsx src/dev-server-entry.ts",
     "dev:watch": "tsx watch src/dev-server-entry.ts",
     "clean": "rm -rf dist"

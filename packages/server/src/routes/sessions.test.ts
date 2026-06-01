@@ -11,16 +11,16 @@ describe("Session routes", () => {
     }
   });
 
-  // --- POST /api/sessions ---
+  // --- POST /sessions ---
 
-  describe("POST /api/sessions", () => {
+  describe("POST /sessions", () => {
     it("creates a session and returns 201", async () => {
       server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
       const response = await server.instance.inject({
         method: "POST",
-        url: "/api/sessions",
+        url: "/sessions",
         payload: { name: "test-session" },
       });
 
@@ -36,13 +36,13 @@ describe("Session routes", () => {
 
       await server.instance.inject({
         method: "POST",
-        url: "/api/sessions",
+        url: "/sessions",
         payload: { sessionId: "dup", name: "dup" },
       });
 
       const response = await server.instance.inject({
         method: "POST",
-        url: "/api/sessions",
+        url: "/sessions",
         payload: { sessionId: "dup", name: "dup" },
       });
 
@@ -53,16 +53,16 @@ describe("Session routes", () => {
     });
   });
 
-  // --- GET /api/sessions ---
+  // --- GET /sessions ---
 
-  describe("GET /api/sessions", () => {
+  describe("GET /sessions", () => {
     it("returns empty list when no sessions exist", async () => {
       server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/api/sessions",
+        url: "/sessions",
       });
 
       expect(response.statusCode).toBe(200);
@@ -76,18 +76,18 @@ describe("Session routes", () => {
 
       await server.instance.inject({
         method: "POST",
-        url: "/api/sessions",
+        url: "/sessions",
         payload: { sessionId: "a", name: "a" },
       });
       await server.instance.inject({
         method: "POST",
-        url: "/api/sessions",
+        url: "/sessions",
         payload: { sessionId: "b", name: "b" },
       });
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/api/sessions",
+        url: "/sessions",
       });
 
       expect(response.statusCode).toBe(200);
@@ -98,22 +98,22 @@ describe("Session routes", () => {
     });
   });
 
-  // --- GET /api/sessions/:id ---
+  // --- GET /sessions/:id ---
 
-  describe("GET /api/sessions/:id", () => {
+  describe("GET /sessions/:id", () => {
     it("returns a session by ID", async () => {
       server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
       await server.instance.inject({
         method: "POST",
-        url: "/api/sessions",
+        url: "/sessions",
         payload: { sessionId: "s1", name: "session-1" },
       });
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/api/sessions/s1",
+        url: "/sessions/s1",
       });
 
       expect(response.statusCode).toBe(200);
@@ -128,7 +128,7 @@ describe("Session routes", () => {
 
       const response = await server.instance.inject({
         method: "GET",
-        url: "/api/sessions/missing",
+        url: "/sessions/missing",
       });
 
       expect(response.statusCode).toBe(404);
@@ -138,22 +138,22 @@ describe("Session routes", () => {
     });
   });
 
-  // --- DELETE /api/sessions/:id ---
+  // --- DELETE /sessions/:id ---
 
-  describe("DELETE /api/sessions/:id", () => {
+  describe("DELETE /sessions/:id", () => {
     it("deletes a session and returns 204", async () => {
       server = createServer({ port: 0, store: createInMemoryStore() });
       await server.start();
 
       await server.instance.inject({
         method: "POST",
-        url: "/api/sessions",
+        url: "/sessions",
         payload: { sessionId: "del", name: "to-delete" },
       });
 
       const response = await server.instance.inject({
         method: "DELETE",
-        url: "/api/sessions/del",
+        url: "/sessions/del",
       });
 
       expect(response.statusCode).toBe(204);
@@ -161,7 +161,7 @@ describe("Session routes", () => {
       // Verify it's gone
       const getResponse = await server.instance.inject({
         method: "GET",
-        url: "/api/sessions/del",
+        url: "/sessions/del",
       });
       expect(getResponse.statusCode).toBe(404);
     });
@@ -172,7 +172,7 @@ describe("Session routes", () => {
 
       const response = await server.instance.inject({
         method: "DELETE",
-        url: "/api/sessions/ghost",
+        url: "/sessions/ghost",
       });
 
       expect(response.statusCode).toBe(404);
