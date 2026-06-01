@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import type { CheckpointStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord, SessionStore, MessageStore, CheckpointLog, EventLog, ConfigStore, CostStore } from "./checkpoint-store.js";
+import type { CheckpointStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord, SessionStore, MessageStore, CheckpointLog, EventLog, ConfigStore, CostStore, ThreadMeta, ThreadStore } from "./checkpoint-store.js";
 import type { LLMMessage } from "./types.js";
 import type { FrozenContext } from "./context.js";
 
@@ -18,7 +18,15 @@ function migrate(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       session_id TEXT NOT NULL,
+      thread_id TEXT,
       payload TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS threads (
+      thread_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS checkpoints (
@@ -58,6 +66,7 @@ function migrate(db: Database.Database): void {
   // Migration: add description/checksum columns to existing config_snapshots tables
   try { db.exec(`ALTER TABLE config_snapshots ADD COLUMN description TEXT`); } catch { /* column exists */ }
   try { db.exec(`ALTER TABLE config_snapshots ADD COLUMN checksum TEXT`); } catch { /* column exists */ }
+  try { db.exec(`ALTER TABLE messages ADD COLUMN thread_id TEXT`); } catch { /* column exists */ }
 }
 
 // --- Per-concern SQLite implementations ---
@@ -209,6 +218,59 @@ export class SqliteCostStore implements CostStore {
   }
 }
 
+export class SqliteThreadStore implements ThreadStore {
+  constructor(private readonly db: Database.Database) {}
+
+  createThread(meta: ThreadMeta): void {
+    const now = Date.now();
+    this.db.prepare("INSERT INTO threads (thread_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)").run(
+      meta.threadId,
+      meta.name,
+      meta.createdAt ?? now,
+      meta.updatedAt ?? now,
+    );
+  }
+
+  loadThread(threadId: string): ThreadMeta | undefined {
+    const row = this.db.prepare("SELECT thread_id, name, created_at, updated_at FROM threads WHERE thread_id = ?").get(threadId) as any;
+    if (!row) return undefined;
+    return { threadId: row.thread_id, name: row.name, createdAt: row.created_at, updatedAt: row.updated_at };
+  }
+
+  updateThread(threadId: string, patch: Partial<Omit<ThreadMeta, "threadId">>): void {
+    const existing = this.loadThread(threadId);
+    if (!existing) return;
+    const merged = { ...existing, ...patch, updatedAt: Date.now() };
+    this.db.prepare("UPDATE threads SET name = ?, updated_at = ? WHERE thread_id = ?").run(
+      merged.name,
+      merged.updatedAt,
+      threadId,
+    );
+  }
+
+  deleteThread(threadId: string): void {
+    this.db.prepare("DELETE FROM threads WHERE thread_id = ?").run(threadId);
+    this.db.prepare("DELETE FROM messages WHERE thread_id = ?").run(threadId);
+  }
+
+  listThreads(): ThreadMeta[] {
+    const rows = this.db.prepare("SELECT thread_id, name, created_at, updated_at FROM threads").all() as any[];
+    return rows.map((r) => ({ threadId: r.thread_id, name: r.name, createdAt: r.created_at, updatedAt: r.updated_at }));
+  }
+
+  addThreadMessages(threadId: string, messages: LLMMessage[]): void {
+    const stmt = this.db.prepare("INSERT INTO messages (thread_id, payload) VALUES (?, ?)");
+    for (const msg of messages) {
+      stmt.run(threadId, JSON.stringify(msg));
+    }
+  }
+
+  loadThreadMessages(threadId: string): LLMMessage[] {
+    const rows = this.db.prepare("SELECT payload FROM messages WHERE thread_id = ?").all(threadId) as { payload: string }[];
+    return rows.map((r) => JSON.parse(r.payload));
+  }
+}
+
 // --- Factory: create all SQLite stores sharing one db ---
 
 function bindMethods(instance: object): Record<string, unknown> {
@@ -233,6 +295,7 @@ export function createSqliteStore(dbPath: string): CheckpointStore & { close(): 
   const event = new SqliteEventLog(db);
   const config = new SqliteConfigStore(db);
   const cost = new SqliteCostStore(db);
+  const thread = new SqliteThreadStore(db);
 
   return Object.assign(
     {},
@@ -242,6 +305,7 @@ export function createSqliteStore(dbPath: string): CheckpointStore & { close(): 
     bindMethods(event),
     bindMethods(config),
     bindMethods(cost),
+    bindMethods(thread),
     {
       close(): void { db.close(); },
       getTableNames(): string[] {

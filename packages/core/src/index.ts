@@ -44,8 +44,8 @@ export {
 export type { HandlerEngineHandle } from "./context.js";
 
 // --- CheckpointStore ---
-export { createInMemoryStore, InMemorySessionStore, InMemoryMessageStore, InMemoryCheckpointLog, InMemoryEventLog, InMemoryConfigStore, InMemoryCostStore } from "./checkpoint-store.js";
-export type { CheckpointStore, SessionStore, MessageStore, CheckpointLog, EventLog, ConfigStore, CostStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord } from "./checkpoint-store.js";
+export { createInMemoryStore, InMemorySessionStore, InMemoryMessageStore, InMemoryCheckpointLog, InMemoryEventLog, InMemoryConfigStore, InMemoryCostStore, InMemoryThreadStore } from "./checkpoint-store.js";
+export type { CheckpointStore, SessionStore, MessageStore, CheckpointLog, EventLog, ConfigStore, CostStore, SessionMeta, StoreEvent, ConfigSnapshot, CostRecord, ThreadStore, ThreadMeta } from "./checkpoint-store.js";
 export { createSqliteStore, SqliteSessionStore, SqliteMessageStore, SqliteCheckpointLog, SqliteEventLog, SqliteConfigStore, SqliteCostStore } from "./sqlite-checkpoint-store.js";
 
 // --- Harness ---

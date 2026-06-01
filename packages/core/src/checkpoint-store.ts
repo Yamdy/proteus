@@ -72,7 +72,7 @@ export interface CostStore {
 
 // --- Composed type for consumers that need the full surface ---
 
-export type CheckpointStore = SessionStore & MessageStore & CheckpointLog & EventLog & ConfigStore & CostStore;
+export type CheckpointStore = SessionStore & MessageStore & CheckpointLog & EventLog & ConfigStore & CostStore & ThreadStore;
 
 // --- In-memory implementations (one per concern) ---
 
@@ -185,6 +185,68 @@ export class InMemoryCostStore implements CostStore {
   }
 }
 
+// --- Thread store (conversation threads with messages) ---
+
+export interface ThreadMeta {
+  threadId: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ThreadStore {
+  createThread(meta: ThreadMeta): void;
+  loadThread(threadId: string): ThreadMeta | undefined;
+  updateThread(threadId: string, patch: Partial<Omit<ThreadMeta, "threadId">>): void;
+  deleteThread(threadId: string): void;
+  listThreads(): ThreadMeta[];
+  addThreadMessages(threadId: string, messages: LLMMessage[]): void;
+  loadThreadMessages(threadId: string): LLMMessage[];
+}
+
+export class InMemoryThreadStore implements ThreadStore {
+  private threads = new Map<string, ThreadMeta>();
+  private messages = new Map<string, LLMMessage[]>();
+
+  createThread(meta: ThreadMeta): void {
+    const now = Date.now();
+    this.threads.set(meta.threadId, {
+      ...meta,
+      createdAt: meta.createdAt ?? now,
+      updatedAt: meta.updatedAt ?? now,
+    });
+  }
+
+  loadThread(threadId: string): ThreadMeta | undefined {
+    return this.threads.get(threadId);
+  }
+
+  updateThread(threadId: string, patch: Partial<Omit<ThreadMeta, "threadId">>): void {
+    const existing = this.threads.get(threadId);
+    if (!existing) return;
+    this.threads.set(threadId, { ...existing, ...patch, updatedAt: Date.now() });
+  }
+
+  deleteThread(threadId: string): void {
+    this.threads.delete(threadId);
+    this.messages.delete(threadId);
+  }
+
+  listThreads(): ThreadMeta[] {
+    return [...this.threads.values()];
+  }
+
+  addThreadMessages(threadId: string, messages: LLMMessage[]): void {
+    const existing = this.messages.get(threadId) ?? [];
+    existing.push(...messages);
+    this.messages.set(threadId, existing);
+  }
+
+  loadThreadMessages(threadId: string): LLMMessage[] {
+    return [...(this.messages.get(threadId) ?? [])];
+  }
+}
+
 // --- Factory: compose all in-memory stores into a CheckpointStore ---
 
 function bindMethods(instance: object): Record<string, unknown> {
@@ -206,6 +268,7 @@ export function createInMemoryStore(): CheckpointStore {
   const event = new InMemoryEventLog();
   const config = new InMemoryConfigStore();
   const cost = new InMemoryCostStore();
+  const thread = new InMemoryThreadStore();
 
   return Object.assign(
     {},
@@ -215,5 +278,6 @@ export function createInMemoryStore(): CheckpointStore {
     bindMethods(event),
     bindMethods(config),
     bindMethods(cost),
+    bindMethods(thread),
   ) as CheckpointStore;
 }
