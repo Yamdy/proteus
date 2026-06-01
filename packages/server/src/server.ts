@@ -24,6 +24,7 @@ import type {
   LLMProvider,
   Tool,
   CheckpointLog,
+  ThreadStore,
 } from "@proteus/core";
 import { sessionRoutes } from "./routes/sessions.js";
 import { registerMetricsRoutes } from "./routes/metrics.js";
@@ -31,6 +32,7 @@ import { registerStatusRoutes, type StatusRouteDeps } from "./routes/status.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerWsRoutes, EventBus } from "./routes/ws.js";
 import { registerSelfModifyRoutes } from "./routes/self-modify.js";
+import { threadRoutes } from "./routes/threads.js";
 
 export interface ServerOptions {
   port?: number;
@@ -112,48 +114,58 @@ export class ProteusServer {
       };
     });
 
-    // Session CRUD routes
-    this.app.register(sessionRoutes, {
-      prefix: "/sessions",
-      sessionManager: this._sessionManager,
-      harness: this._harness,
-      agent: this._agent,
-    });
+    // All API routes under /api prefix to match Studio proxy expectations
+    this.app.register(async (api) => {
+      // Session CRUD routes
+      api.register(sessionRoutes, {
+        prefix: "/sessions",
+        sessionManager: this._sessionManager,
+        harness: this._harness,
+        agent: this._agent,
+      });
 
-    // Status and config endpoints
-    const statusDeps: StatusRouteDeps = {
-      metrics: options.metrics,
-      lifecycle: options.lifecycle,
-      configManager: options.configManager,
-      sessionId: options.sessionId,
-    };
-    this.app.register(async (app) => registerStatusRoutes(app, statusDeps));
+      // Status and config endpoints
+      const statusDeps: StatusRouteDeps = {
+        metrics: options.metrics,
+        lifecycle: options.lifecycle,
+        configManager: options.configManager,
+        sessionId: options.sessionId,
+      };
+      api.register(async (app) => registerStatusRoutes(app, statusDeps));
 
-    // POST /chat — synchronous inference (only when LLM is configured)
-    if (this._agent) {
-      this.app.register(
-        (app) => registerChatRoutes(app, {
-          sessionManager: this._sessionManager,
-          harness: this._harness,
-          agent: this._agent!,
-        }),
-        { prefix: "/chat" },
-      );
-    }
+      // POST /chat — synchronous inference (only when LLM is configured)
+      if (this._agent) {
+        api.register(
+          (app) => registerChatRoutes(app, {
+            sessionManager: this._sessionManager,
+            harness: this._harness,
+            agent: this._agent!,
+          }),
+          { prefix: "/chat" },
+        );
+      }
 
-    // Metrics / Costs / Traces / Detailed health
-    this.app.register(registerMetricsRoutes, {
-      metrics: options.metrics,
-      costStore: options.costStore,
-      eventLog: options.eventLog,
-      sessionStore: options.sessionStore,
-      handlerCount: options.handlerCount,
-    });
+      // Metrics / Costs / Traces / Detailed health
+      api.register(registerMetricsRoutes, {
+        metrics: options.metrics,
+        costStore: options.costStore,
+        eventLog: options.eventLog,
+        sessionStore: options.sessionStore,
+        handlerCount: options.handlerCount,
+      });
 
-    // Self-Modify history / detail / rollback
-    this.app.register(async (app) => registerSelfModifyRoutes(app), {
-      prefix: "/self-modify",
-    });
+      // Self-Modify history / detail / rollback
+      api.register(async (app) => registerSelfModifyRoutes(app), {
+        prefix: "/self-modify",
+      });
+
+      // Thread CRUD routes
+      api.register(async (app) => threadRoutes(app, {
+        threadStore: (options.store as unknown as ThreadStore) ?? createInMemoryStore(),
+      }), {
+        prefix: "/threads",
+      });
+    }, { prefix: "/api" });
 
     // WebSocket event push (not under /api — ws://host/ws)
     const eventBus = options.eventBus ?? new EventBus(options.eventLog);
