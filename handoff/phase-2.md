@@ -34,7 +34,11 @@ Then   - Agent 通过 recall 工具检索到相关记忆
 
 ## 进度清单
 
-- [ ] 2.1 内置工具迁移（read_file, write_file, list_dir）
+- [x] 2.1 内置工具迁移（read_file, write_file, list_dir）
+  - commit: 7a78a02 (proteus-platform)
+  - pnpm build: ✅
+  - pnpm test: 8/8 pass
+  - 新增文件: packages/core/src/tools/built-in.ts, packages/core/src/tools/built-in.test.ts
 - [ ] 2.2 self-modify.ts 迁移 + config-snapshot-manager.ts
 - [ ] 2.3 prompt-fragment-registry.ts + loader 迁移
 - [ ] 2.4 memory/ 核心迁移（conversation-history, structured-working-memory, semantic-recall）
