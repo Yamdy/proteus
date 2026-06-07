@@ -70,6 +70,17 @@ export function useChat() {
             signal: controller.signal,
           });
 
+          if (!res.ok) {
+            let errorMsg = `Server error ${res.status}`;
+            try {
+              const errorBody = await res.json();
+              errorMsg = errorBody.message || errorBody.error || errorMsg;
+            } catch {
+              // Can't parse error body, use default message
+            }
+            throw new Error(errorMsg);
+          }
+
           const reader = res.body?.getReader();
           if (!reader) throw new Error("No readable stream");
 
@@ -94,6 +105,9 @@ export function useChat() {
                 }
                 try {
                   const parsed = JSON.parse(data);
+                  if (parsed.error) {
+                    throw new Error(parsed.error);
+                  }
                   const chunk = parsed.content ?? parsed.delta?.content ?? "";
                   if (chunk) {
                     fullContent += chunk;

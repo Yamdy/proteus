@@ -39,9 +39,18 @@ Then   - Agent 通过 recall 工具检索到相关记忆
   - pnpm build: ✅
   - pnpm test: 8/8 pass
   - 新增文件: packages/core/src/tools/built-in.ts, packages/core/src/tools/built-in.test.ts
-- [ ] 2.2 self-modify.ts 迁移 + config-snapshot-manager.ts
-- [ ] 2.3 prompt-fragment-registry.ts + loader 迁移
-- [ ] 2.4 memory/ 核心迁移（conversation-history, structured-working-memory, semantic-recall）
+- [x] 2.2 self-modify.ts 迁移 + config-snapshot-manager.ts
+  - commit: bfc8b33 (proteus-platform)
+  - pnpm build: ✅ (0 errors)
+  - pnpm test: 45/45 pass (0 skip)
+  - 新增文件: packages/core/src/self-modify.ts, packages/core/src/self-modify.test.ts, packages/core/src/config-snapshot-manager.ts, packages/core/src/config-snapshot-manager.test.ts
+- [x] 2.3 prompt-fragment-registry.ts + loader 迁移
+  - 发现：目标仓库中已存在且与源文件完全相同，无需迁移
+- [x] 2.4 memory/ 核心迁移（conversation-history, structured-working-memory, semantic-recall）
+  - commit: af7186d (proteus-platform)
+  - pnpm build: ✅ (0 errors)
+  - pnpm test: 96/96 pass (0 skip)
+  - 新增文件: memory/truncation.ts, memory/conversation-history.ts, memory/structured-working-memory.ts, memory/semantic-recall.ts, memory/in-memory-embedding-provider.ts + 4 个测试文件
 - [ ] 2.5 memory tools 迁移（recall-tool, store-memory-tool）
 - [ ] 2.6 端到端冒烟测试通过
 

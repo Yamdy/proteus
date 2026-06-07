@@ -116,7 +116,34 @@ export function useSession() {
     setThreadError(null);
     try {
       const data = await apiFetch<Thread[]>(THREAD_API);
-      setThreads(data);
+
+      // Ensure every thread has a backing session for chat API calls.
+      // Backend threads don't store sessionId, so we create sessions on demand.
+      const threadsWithSession: Thread[] = [];
+      for (const thread of data) {
+        if (thread.sessionId) {
+          threadsWithSession.push(thread);
+          continue;
+        }
+
+        // Create a backing session for this thread (name matches thread)
+        try {
+          const session = await apiFetch<Session>(API_BASE, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: thread.name, sessionId: `sess-${thread.id}` }),
+          });
+          addSession(session);
+          threadsWithSession.push({ ...thread, sessionId: session.id });
+        } catch {
+          // If session creation fails (e.g. already exists), try to fetch existing sessions
+          // and look for one that matches
+          console.warn(`Failed to create session for thread ${thread.id}, using thread id as fallback`);
+          threadsWithSession.push({ ...thread, sessionId: thread.id });
+        }
+      }
+
+      setThreads(threadsWithSession);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       console.error("fetchThreads error:", err);
@@ -125,7 +152,7 @@ export function useSession() {
     } finally {
       setThreadLoading(false);
     }
-  }, [setThreads]);
+  }, [addSession, setThreads]);
 
   const createThread = useCallback(
     async (name?: string) => {
