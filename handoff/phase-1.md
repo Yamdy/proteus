@@ -41,20 +41,20 @@ Then   - result.status === "completed"
 ## 进度清单
 
 - [ ] 1.1 新建 monorepo 脚手架（pnpm workspace + turbo + tsconfig）
-- [ ] 1.2 types.ts 迁移（接口定义，不改签名）
-- [ ] 1.3 schemas/ 迁移（Zod schema，不改逻辑）
-- [ ] 1.4 utils/hash.ts 迁移
-- [ ] 1.5 context.ts 迁移（三层上下文 + FrozenContext）
-- [ ] 1.6 handler-engine.ts 迁移（事件总线，不改逻辑）
-- [ ] 1.7 lifecycle.ts 迁移（状态机）
-- [ ] 1.8 checkpoint-store.ts 迁移（6 窄接口 + InMemory 实现）
-- [ ] 1.9 llm/provider.ts + llm/protocols/openai-chat.ts 迁移
-- [ ] 1.10 tool-registry.ts 迁移
-- [ ] 1.11 processors.ts 迁移 + 修复 maxTokens bug
-- [ ] 1.12 harness.ts 重写（修复 Processor 执行语义）
-- [ ] 1.13 otel-bridge.ts + noop-tracer.ts + metrics-collector.ts 迁移
-- [ ] 1.14 sdk.ts 精简版（只保留 chat + session 管理）
-- [ ] 1.15 端到端冒烟测试通过
+- [x] 1.2 types.ts 迁移（接口定义，不改签名）✅ 2026-06-07 — 零改动，仅改包名注释
+- [x] 1.3 schemas/ 迁移（Zod schema，不改逻辑）✅ 2026-06-07 — 零改动，含 tool/handler/session/llm/registry/traces + memory/schemas
+- [x] 1.4 utils/hash.ts 迁移 ✅ 2026-06-07 — 零改动
+- [x] 1.5 context.ts 迁移（三层上下文 + FrozenContext）✅ 2026-06-07 — 零改动，含 prompt-fragment-registry.ts, memory/types.ts, memory/in-memory-provider.ts
+- [x] 1.6 handler-engine.ts 迁移（事件总线，不改逻辑）✅ 2026-06-07 — 零改动，含 worker-handler-runner.ts, worker-pool.ts
+- [x] 1.7 lifecycle.ts 迁移（状态机）✅ 2026-06-07 — 零改动
+- [x] 1.8 checkpoint-store.ts 迁移（6 窄接口 + InMemory 实现）✅ 2026-06-07 — 零改动，含 ThreadStore
+- [x] 1.9 llm/provider.ts + llm/protocols/openai-chat.ts 迁移 ✅ 2026-06-07 — 零改动
+- [x] 1.10 tool-registry.ts 迁移 ✅ 2026-06-07 — 零改动
+- [x] 1.11 processors.ts 迁移 + 修复 maxTokens bug ✅ 2026-06-07 — D4 修复：estimateTokens() 替代消息条数比较
+- [x] 1.12 harness.ts 重写（修复 Processor 执行语义）✅ 2026-06-07 — D5 重写：Processor 独立执行，phase:before/after 仅用于拦截器/观察者
+- [x] 1.13 otel-bridge.ts + noop-tracer.ts + metrics-collector.ts 迁移 ✅ 2026-06-07 — 重组为 otel/ 目录，跳过 OTel SDK adapter（Phase 1 只需 noop）
+- [x] 1.14 sdk.ts 精简版（只保留 chat + session 管理）✅ 2026-06-07 — 零改动，含 session-manager.ts
+- [x] 1.15 端到端冒烟测试通过 ✅ 2026-06-07 — 5/5 测试通过（发消息→回复、回复内容、turnId、CheckpointStore、CostTracker）
 
 ## 已做决策
 
