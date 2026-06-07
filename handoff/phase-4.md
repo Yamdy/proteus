@@ -32,17 +32,41 @@ Then   - coder 生成代码
 
 ## 进度清单
 
-- [ ] 4.1 AgentRegistry（Agent 元数据注册）
-- [ ] 4.2 AgentRouter（跨 Agent 事件路由）
-- [ ] 4.3 SubHarness 重写（三种隔离模式：full / shared / summary）
-- [ ] 4.4 Agent-as-Tool（Agent 包装为 Tool）
-- [ ] 4.5 OTel Trace 树扩展（跨 Agent parent-child Span）
-- [ ] 4.6 成本归因到父 Agent
-- [ ] 4.7 端到端冒烟测试通过
+- [x] 4.1 AgentRegistry（Agent 元数据注册）
+  - commit: (pending)
+  - pnpm build: ✅
+  - pnpm test: 161/161 pass
+  - 新增文件: `packages/core/src/agent-registry.ts`
+- [x] 4.2 AgentRouter（跨 Agent 事件路由）
+  - 新增文件: `packages/core/src/agent-router.ts`, `packages/core/src/agent-router.test.ts`
+- [x] 4.3 SubHarness 重写（三种隔离模式：full / shared / summary）
+  - 新增文件: `packages/core/src/sub-harness.ts`, `packages/core/src/sub-harness.test.ts`
+- [x] 4.4 Agent-as-Tool（Agent 包装为 Tool）
+  - 实现在 E2E 测试中的 `createAgentAsTool()` 工厂函数
+- [x] 4.5 OTel Trace 树扩展（跨 Agent parent-child Span）
+  - 修改文件: `packages/core/src/otel/otel-bridge.ts`
+  - 新增文件: `packages/core/src/otel/cross-agent-trace.test.ts`
+- [x] 4.6 成本归因到父 Agent
+  - 新增文件: `packages/core/src/cost-tracker.ts`, `packages/core/src/cost-tracker.test.ts`
+- [x] 4.7 端到端冒烟测试通过
+  - 新增文件: `e2e/phase4-smoke.test.ts` (8 tests pass)
 
 ## 已做决策
 
-（待开发时填写）
+### D4.1: AgentRegistry 存储 AgentContext 而非 AgentDefinition
+
+**级别: 实现** — AgentRegistry 直接存储 AgentContext 实例，避免额外的元数据层。
+原因：AgentContext 已包含 LLM、tools、handlerEngine，是完整的 Agent 运行时。
+
+### D4.2: AgentRouter 同时持有 tracer 和 costTracker
+
+**级别: 实现** — 构造函数注入可选依赖。
+原因：委托时需要同步创建 span 和记录成本，避免事后追溯。
+
+### D4.3: SubHarness 继承 Harness
+
+**级别: 实现** — 使用继承而非组合，复用 runTurn/runChain 逻辑。
+原因：隔离模式只影响 SessionContext 构建，不影响执行流程。
 
 ## 当前阻塞
 
