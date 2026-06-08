@@ -33,9 +33,10 @@ Then   - coder 生成代码
 ## 进度清单
 
 - [x] 4.1 AgentRegistry（Agent 元数据注册）
-  - commit: (pending)
-  - pnpm build: ✅
-  - pnpm test: 161/161 pass
+  - commit: b1fedf4
+  - pnpm build: ✅ (4 packages)
+  - pnpm test: ✅ (161 tests pass)
+  - E2E: ✅ (8 tests pass)
   - 新增文件: `packages/core/src/agent-registry.ts`
 - [x] 4.2 AgentRouter（跨 Agent 事件路由）
   - 新增文件: `packages/core/src/agent-router.ts`, `packages/core/src/agent-router.test.ts`
