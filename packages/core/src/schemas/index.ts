@@ -14,3 +14,6 @@ export type { InferredToolCall, InferredLLMResponse } from "./llm.js";
 
 export { SchemaRegistry, createSchemaRegistry } from "./registry.js";
 export type { ValidationResult } from "./registry.js";
+
+export { AgentDefinitionSchema, AgentRegistryEntrySchema } from "./agent.js";
+export type { InferredAgentDefinition, InferredAgentRegistryEntry } from "./agent.js";

@@ -19,6 +19,11 @@ export type {
   SandboxOptions,
   SandboxMount,
   SandboxResult,
+  AgentDefinition,
+  AgentRegistryEntry,
+  AgentRouterResult,
+  AgentRouter,
+  AgentToolConfig,
 } from "./types.js";
 
 // --- Handler Engine ---
@@ -66,6 +71,12 @@ export type { ProviderConfig, OpenAIChatConfig, OpenAIChatProtocol } from "./llm
 
 // --- ToolRegistry ---
 export { ToolRegistry } from "./tool-registry.js";
+
+// --- AgentRegistry ---
+export { AgentRegistry } from "./agent-registry.js";
+
+// --- Agent-as-Tool ---
+export { createAgentTool } from "./agent-as-tool.js";
 
 // --- ConfigSnapshotManager ---
 export { ConfigSnapshotManager } from "./config-snapshot-manager.js";

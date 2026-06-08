@@ -68,6 +68,19 @@ packages/studio/        浏览器 UI
 3. 全部通过后才能更新 phase-N.md 标记阶段完成
 4. 创建 phase-(N+1).md
 
+### 迁移验证规则
+
+迁移代码不能只靠 mock 测试。以下场景必须有真实 API/环境的集成测试：
+
+| 场景 | 必须验证 | 原因 |
+| ---- | -------- | ---- |
+| 流式处理（SSE/WebSocket） | 至少一次真实 API 端到端调用 | mock 返回完整对象，绕过了增量拼接逻辑 |
+| 文件 I/O | 验证文件实际落盘 | mock 可以返回成功但文件未写入 |
+| 网络协议 | 真实请求-响应周期 | wire format 差异（分片、编码、时序）mock 无法模拟 |
+| 序列化/反序列化 | 用真实数据结构测试 | 边界情况（空值、Unicode、大对象）mock 容易遗漏 |
+
+**教训来源：** 2026-06-07 调试 hello-agent — `openai-chat.ts` 的 `chatStream()` 中 `tool_calls.arguments` 流式拼接 bug 原仓库就有，迁移时 mock 测试掩盖了问题，直到真实 DeepSeek API 调用才发现。
+
 ### Handoff 文档改动规则
 
 Handoff 文档是活文档，不是合同。计划服务于开发，不是开发服务于计划。

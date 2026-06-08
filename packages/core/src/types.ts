@@ -11,6 +11,7 @@
 import type { InferredToolDefinition, InferredToolResult, InferredArtifact } from './schemas/tool.js';
 import type { InferredHandlerResult } from './schemas/handler.js';
 import type { SessionConfigInferred } from './schemas/session.js';
+import type { InferredAgentDefinition, InferredAgentRegistryEntry } from './schemas/agent.js';
 
 // --- Prompt Fragment ---
 
@@ -136,4 +137,42 @@ export interface SandboxHandle {
   writeFile(path: string, content: string): Promise<void>;
   /** Tear down the sandbox and release all resources. */
   destroy(): Promise<void>;
+}
+
+// --- Agent Registry ---
+
+export type AgentDefinition = InferredAgentDefinition;
+export type AgentRegistryEntry = InferredAgentRegistryEntry;
+
+// --- Agent Router ---
+
+/** Result returned by an AgentRouter after delegating a task to an agent. */
+export interface AgentRouterResult {
+  output: string;
+  status: "completed" | "errored" | "timed_out";
+  error?: string;
+}
+
+/**
+ * A function that routes a task to a specific agent and returns its response.
+ *
+ * Implementations decide how to invoke the agent (Harness, SubHarness,
+ * remote HTTP call, etc.). The Agent-as-Tool layer only cares about the
+ * input/output contract.
+ */
+export type AgentRouter = (
+  agentId: string,
+  task: string,
+  context?: string,
+) => Promise<AgentRouterResult>;
+
+// --- Agent-as-Tool Config ---
+
+export interface AgentToolConfig {
+  /** ID of the agent to wrap. Must match an entry in the AgentRegistry. */
+  agentId: string;
+  /** Human-readable description shown to the calling LLM. Falls back to the agent's own description. */
+  description?: string;
+  /** Maximum time in milliseconds to wait for the agent to respond. Defaults to 60 000 ms. */
+  timeout?: number;
 }
