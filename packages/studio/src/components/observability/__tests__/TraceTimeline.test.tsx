@@ -295,8 +295,8 @@ describe("TraceTimeline", () => {
     it("dims spans whose type is in fadedTypes after expand", async () => {
       const user = userEvent.setup();
       const spans = makeSimpleTrace();
-      // "llm" type should be faded
-      render(<TraceTimeline spans={spans} fadedTypes={new Set(["llm"])} />);
+      // "model" type (derived from "llm:chat") should be faded
+      render(<TraceTimeline spans={spans} fadedTypes={new Set(["model"])} />);
 
       // Expand root to see children
       await user.click(screen.getByTestId("expand-toggle-root"));
@@ -311,7 +311,7 @@ describe("TraceTimeline", () => {
     it("faded spans have hover:opacity-60 class", async () => {
       const user = userEvent.setup();
       const spans = makeSimpleTrace();
-      render(<TraceTimeline spans={spans} fadedTypes={new Set(["llm"])} />);
+      render(<TraceTimeline spans={spans} fadedTypes={new Set(["model"])} />);
 
       // Expand root to see children
       await user.click(screen.getByTestId("expand-toggle-root"));
@@ -329,7 +329,7 @@ describe("TraceTimeline", () => {
 
       expect(screen.getByTestId("legend")).toBeInTheDocument();
       expect(screen.getByText("Turn")).toBeInTheDocument();
-      expect(screen.getByText("LLM")).toBeInTheDocument();
+      expect(screen.getByText("Model")).toBeInTheDocument();
       expect(screen.getByText("Tool")).toBeInTheDocument();
     });
 

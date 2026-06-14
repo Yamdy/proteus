@@ -197,7 +197,7 @@ export class MetricsServerAdapter {
     // Query events in current window
     const allEvents = this.eventLog.queryAllEvents(window.start, window.end);
     const currentEvents = allEvents.filter(
-      (e) => e.event === metric && matchesFilters(e, filters),
+      (e) => (metric === "" || e.event === metric) && matchesFilters(e, filters),
     );
     const currentValue = aggregateValues(currentEvents, aggregation as Aggregation, distinctColumn);
 
@@ -212,7 +212,7 @@ export class MetricsServerAdapter {
       const prevWindow = shiftWindow(window, comparePeriod as ComparePeriod);
       const prevAllEvents = this.eventLog.queryAllEvents(prevWindow.start, prevWindow.end);
       const prevEvents = prevAllEvents.filter(
-        (e) => e.event === metric && matchesFilters(e, filters),
+        (e) => (metric === "" || e.event === metric) && matchesFilters(e, filters),
       );
       previousValue = aggregateValues(prevEvents, aggregation as Aggregation, distinctColumn);
       effectivePrevious = previousValue ?? 0;

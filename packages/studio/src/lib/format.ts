@@ -57,7 +57,12 @@ export function formatCompact(value: number): string {
 }
 
 /** Format cost as USD string. */
+const costFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 export function formatCost(usd: number): string {
-  if (usd < 0.01) return `$${usd.toFixed(4)}`;
-  return `$${usd.toFixed(2)}`;
+  return costFormatter.format(usd);
 }

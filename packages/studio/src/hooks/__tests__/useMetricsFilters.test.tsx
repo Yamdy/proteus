@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import React from "react";
-import { MemoryRouter, useSearchParams } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import { MetricsProvider, useMetricsFilters } from "../useMetricsFilters";
 
 // Helper to wrap hook in both Router and MetricsProvider

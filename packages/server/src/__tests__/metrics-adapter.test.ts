@@ -121,7 +121,7 @@ describe("MetricsServerAdapter", () => {
       const adapter = await createAdapter();
 
       const result = await adapter.getMetricAggregate({
-        name: [""],
+        name: ["latency"],
         aggregation: "sum",
         timestamp: { start: 1000, end: 2000 },
       });
@@ -140,7 +140,7 @@ describe("MetricsServerAdapter", () => {
       const adapter = await createAdapter();
 
       const result = await adapter.getMetricAggregate({
-        name: [""],
+        name: ["latency"],
         aggregation: "count",
         timestamp: { start: 1000, end: 2000 },
       });
@@ -194,7 +194,7 @@ describe("MetricsServerAdapter", () => {
       const adapter = await createAdapter();
 
       const result = await adapter.getMetricAggregate({
-        name: [""],
+        name: ["latency"],
         aggregation: "avg",
         timestamp: { start: 1000, end: 2000 },
       });
@@ -208,7 +208,7 @@ describe("MetricsServerAdapter", () => {
       const adapter = await createAdapter();
 
       const result = await adapter.getMetricAggregate({
-        name: [""],
+        name: ["latency"],
         aggregation: "min",
         timestamp: { start: 1000, end: 2000 },
       });
@@ -221,7 +221,7 @@ describe("MetricsServerAdapter", () => {
       const adapter = await createAdapter();
 
       const result = await adapter.getMetricAggregate({
-        name: [""],
+        name: ["latency"],
         aggregation: "max",
         timestamp: { start: 1000, end: 2000 },
       });
@@ -253,7 +253,7 @@ describe("MetricsServerAdapter", () => {
       const adapter = await createAdapter();
 
       const result = await adapter.getMetricAggregate({
-        name: [""],
+        name: ["latency"],
         aggregation: "sum",
         timestamp: { start: 1000, end: 2000 },
         comparePeriod: "previous_period",
@@ -383,13 +383,13 @@ describe("MetricsServerAdapter", () => {
       eventLog.appendEvent({
         sessionId: "s1",
         event: "latency",
-        payload: { value: 100, status: "" },
+        payload: { value: 100, status: "ok" },
         timestamp: 1500,
       });
       eventLog.appendEvent({
         sessionId: "s1",
         event: "latency",
-        payload: { value: 200, status: "" },
+        payload: { value: 200, status: "error" },
         timestamp: 1600,
       });
 
@@ -397,13 +397,13 @@ describe("MetricsServerAdapter", () => {
       eventLog.appendEvent({
         sessionId: "s1",
         event: "latency",
-        payload: { value: 50, status: "" },
+        payload: { value: 50, status: "ok" },
         timestamp: 500,
       });
       eventLog.appendEvent({
         sessionId: "s1",
         event: "latency",
-        payload: { value: 75, status: "" },
+        payload: { value: 75, status: "error" },
         timestamp: 600,
       });
 
@@ -414,7 +414,7 @@ describe("MetricsServerAdapter", () => {
         aggregation: "sum",
         timestamp: { start: 1000, end: 2000 },
         comparePeriod: "previous_period",
-        filters: { status: "" },
+        filters: { status: "ok" },
       });
 
       expect(result.value).toBe(100);

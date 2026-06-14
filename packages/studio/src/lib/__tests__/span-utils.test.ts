@@ -4,12 +4,16 @@ import type { SpanRecord } from "../span-utils.js";
 
 /** Helper to build a SpanRecord with sensible defaults. */
 function span(overrides: Partial<SpanRecord> & { id: string }): SpanRecord {
+  const { id, ...rest } = overrides;
   return {
+    traceId: "trace-1",
+    spanId: id,
     name: "span",
     type: "custom",
+    status: "success" as const,
     startTime: 0,
     endTime: 100,
-    ...overrides,
+    ...rest,
   };
 }
 
